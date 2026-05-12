@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Live2D Vibe</title>
     <style>
-      body { margin: 0; overflow: hidden; background-color: #f0f0f0; }
-      #app { width: 100vw; height: 100vh; display: block; }
+      /* 确保背景和全屏 */
+      body { margin: 0; padding: 0; overflow: hidden; background-color: #f0f0f0; }
+      canvas { display: block; width: 100vw; height: 100vh; }
     </style>
-    <script type="module" crossorigin src="/live2d-vibe/assets/index-BPzp6AQm.js"></script>
+    <script type="module" crossorigin src="/live2d-vibe/assets/index-vHU5mqEQ.js"></script>
   </head>
   <body>
-    <!-- 这里的 id 必须和 main.js 里的 getElementById("app") 对应 -->
-    <canvas id="app"></canvas>
+    <!-- 删掉了手动 canvas，脚本会自动 append -->
   </body>
 </html>
