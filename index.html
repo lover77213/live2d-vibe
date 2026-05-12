@@ -1,17 +1,17 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <!-- ⚠️ Cubism 必須最先載入 -->
-    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
-
-    <title>Live2D</title>
-    <script type="module" crossorigin src="/live2d-vibe/assets/index-BMV26yZU.js"></script>
+    <title>Live2D Vibe</title>
+    <style>
+      body { margin: 0; overflow: hidden; background-color: #f0f0f0; }
+      #app { width: 100vw; height: 100vh; display: block; }
+    </style>
+    <script type="module" crossorigin src="/live2d-vibe/assets/index-BPzp6AQm.js"></script>
   </head>
-
   <body>
-    <div id="app"></div>
+    <!-- 这里的 id 必须和 main.js 里的 getElementById("app") 对应 -->
+    <canvas id="app"></canvas>
   </body>
 </html>
