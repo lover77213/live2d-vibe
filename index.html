@@ -4,18 +4,32 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Live2D Vibe</title>
-    <!-- 引入 PIXI.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
-    <!-- 引入官方 Cubism 核心 (修正後的正確連結) -->
-    <script src="https://cubism.live2d.com/sdk-web/cubism-4/Framework/bin/live2dcubismcore.min.js"></script>
+    
+    <!-- 1. 直接移除原本失效的外部連結 -->
+    <!-- 2. 改為讀取你 public 資料夾下的本地核心引擎 -->
+    <!-- 注意：這裡不需要手動引入 PIXI.js，因為你在 main.js 已經 import 了 -->
+    <script src="./live2dcubismcore.min.js"></script>
+
     <style>
-        body { margin: 0; background-color: #222; overflow: hidden; }
-        canvas { display: block; width: 100vw; height: 100vh; }
+        body { 
+            margin: 0; 
+            background-color: #222; 
+            overflow: hidden; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        /* 確保畫布填滿螢幕 */
+        canvas { 
+            display: block; 
+            width: 100vw; 
+            height: 100vh; 
+        }
     </style>
   <script type="module" crossorigin src="/live2d-vibe/assets/index-DWQRtryi.js"></script>
 </head>
 <body>
+    <!-- 這是 PIXI 渲染的容器 -->
     <div id="app"></div>
 </body>
 </html>
-
