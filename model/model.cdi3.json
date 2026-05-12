@@ -1,0 +1,527 @@
+{
+	"Version": 3,
+	"Parameters": [
+		{
+			"Id": "ParamAngleZ",
+			"GroupId": "ParamGroup",
+			"Name": "角度 Z"
+		},
+		{
+			"Id": "Param2",
+			"GroupId": "ParamGroup2",
+			"Name": "內褲脫掉"
+		},
+		{
+			"Id": "Param",
+			"GroupId": "ParamGroup2",
+			"Name": "內褲左拉"
+		},
+		{
+			"Id": "Param3",
+			"GroupId": "ParamGroup2",
+			"Name": "內褲右拉"
+		},
+		{
+			"Id": "Param5",
+			"GroupId": "ParamGroup4",
+			"Name": "陰道開合"
+		},
+		{
+			"Id": "Param6",
+			"GroupId": "ParamGroup4",
+			"Name": "處女膜"
+		},
+		{
+			"Id": "Param4",
+			"GroupId": "ParamGroup4",
+			"Name": "陰唇左右"
+		},
+		{
+			"Id": "ParamEyeLOpen",
+			"GroupId": "ParamGroup3",
+			"Name": "左眼 开闭"
+		},
+		{
+			"Id": "ParamEyeROpen",
+			"GroupId": "ParamGroup3",
+			"Name": "右眼 开闭"
+		},
+		{
+			"Id": "ParamEyeLSmile",
+			"GroupId": "ParamGroup3",
+			"Name": "左眼 微笑"
+		},
+		{
+			"Id": "ParamEyeRSmile",
+			"GroupId": "ParamGroup3",
+			"Name": "右眼 微笑"
+		},
+		{
+			"Id": "ParamEyeBallX",
+			"GroupId": "ParamGroup3",
+			"Name": "眼珠 X"
+		},
+		{
+			"Id": "ParamEyeBallY",
+			"GroupId": "ParamGroup3",
+			"Name": "眼珠 Y"
+		},
+		{
+			"Id": "ParamMouthForm",
+			"GroupId": "ParamGroup5",
+			"Name": "嘴 变形"
+		},
+		{
+			"Id": "Param7",
+			"GroupId": "",
+			"Name": "內衣"
+		},
+		{
+			"Id": "ParamBrowLY",
+			"GroupId": "",
+			"Name": "左眉 上下"
+		},
+		{
+			"Id": "ParamBrowRY",
+			"GroupId": "",
+			"Name": "右眉 上下"
+		},
+		{
+			"Id": "ParamBrowLX",
+			"GroupId": "",
+			"Name": "左眉 左右"
+		},
+		{
+			"Id": "ParamBrowRX",
+			"GroupId": "",
+			"Name": "右眉 左右"
+		},
+		{
+			"Id": "ParamBrowLAngle",
+			"GroupId": "",
+			"Name": "左眉 角度"
+		},
+		{
+			"Id": "ParamBrowRAngle",
+			"GroupId": "",
+			"Name": "右眉 角度"
+		},
+		{
+			"Id": "ParamBrowLForm",
+			"GroupId": "",
+			"Name": "左眉 変形"
+		},
+		{
+			"Id": "ParamBrowRForm",
+			"GroupId": "",
+			"Name": "右眉 変形"
+		},
+		{
+			"Id": "ParamCheek",
+			"GroupId": "",
+			"Name": "脸颊泛红"
+		},
+		{
+			"Id": "ParamBodyAngleX",
+			"GroupId": "",
+			"Name": "身体旋转 X"
+		},
+		{
+			"Id": "ParamBodyAngleY",
+			"GroupId": "",
+			"Name": "身体旋转 Y"
+		},
+		{
+			"Id": "ParamBodyAngleZ",
+			"GroupId": "",
+			"Name": "身体旋转 Z"
+		},
+		{
+			"Id": "ParamBreath",
+			"GroupId": "",
+			"Name": "呼吸"
+		},
+		{
+			"Id": "ParamHairFront",
+			"GroupId": "",
+			"Name": "摇动 前发"
+		},
+		{
+			"Id": "ParamHairSide",
+			"GroupId": "",
+			"Name": "摇动 侧发"
+		},
+		{
+			"Id": "ParamHairBack",
+			"GroupId": "",
+			"Name": "摇动 后发"
+		}
+	],
+	"ParameterGroups": [
+		{
+			"Id": "ParamGroup",
+			"GroupId": "",
+			"Name": "頭部運動"
+		},
+		{
+			"Id": "ParamGroup2",
+			"GroupId": "",
+			"Name": "內褲控制"
+		},
+		{
+			"Id": "ParamGroup4",
+			"GroupId": "",
+			"Name": "性器"
+		},
+		{
+			"Id": "ParamGroup3",
+			"GroupId": "",
+			"Name": "眼睛"
+		},
+		{
+			"Id": "ParamGroup5",
+			"GroupId": "",
+			"Name": "嘴巴"
+		}
+	],
+	"Parts": [
+		{
+			"Id": "Part",
+			"Name": "頭部控制"
+		},
+		{
+			"Id": "Part7",
+			"Name": "制服"
+		},
+		{
+			"Id": "Part8",
+			"Name": "插入控制器"
+		},
+		{
+			"Id": "Part11",
+			"Name": "腿部動作1"
+		},
+		{
+			"Id": "Part12",
+			"Name": "腿部動作2"
+		},
+		{
+			"Id": "Part13",
+			"Name": "腿部姿勢3"
+		},
+		{
+			"Id": "Part23",
+			"Name": "手部動作1"
+		},
+		{
+			"Id": "Part34",
+			"Name": "內衣"
+		},
+		{
+			"Id": "Part50",
+			"Name": "乳房控制"
+		},
+		{
+			"Id": "Part60",
+			"Name": "陰部遮罩"
+		},
+		{
+			"Id": "Part71",
+			"Name": "鞋子"
+		},
+		{
+			"Id": "Part72",
+			"Name": "腿部"
+		},
+		{
+			"Id": "Part80",
+			"Name": "呼吸"
+		},
+		{
+			"Id": "Part81",
+			"Name": "軀幹控制"
+		},
+		{
+			"Id": "Part83",
+			"Name": "手部"
+		},
+		{
+			"Id": "Part2",
+			"Name": "頭髮控制器"
+		},
+		{
+			"Id": "Part3",
+			"Name": "左眼組"
+		},
+		{
+			"Id": "Part4",
+			"Name": "右眼組"
+		},
+		{
+			"Id": "Part5",
+			"Name": "嘴巴控制"
+		},
+		{
+			"Id": "Part6",
+			"Name": "頭髮控制器2"
+		},
+		{
+			"Id": "Part9",
+			"Name": "子宮斷面"
+		},
+		{
+			"Id": "Part10",
+			"Name": "陰道內壁"
+		},
+		{
+			"Id": "Part14",
+			"Name": "絲襪"
+		},
+		{
+			"Id": "Part17",
+			"Name": "肉底"
+		},
+		{
+			"Id": "Part24",
+			"Name": "上衣"
+		},
+		{
+			"Id": "Part25",
+			"Name": "內衣2"
+		},
+		{
+			"Id": "Part31",
+			"Name": "身體"
+		},
+		{
+			"Id": "Part32",
+			"Name": "左手組"
+		},
+		{
+			"Id": "Part33",
+			"Name": "右手組"
+		},
+		{
+			"Id": "Part35",
+			"Name": "奶罩控制"
+		},
+		{
+			"Id": "Part48",
+			"Name": "內褲"
+		},
+		{
+			"Id": "Part51",
+			"Name": "摸乳左"
+		},
+		{
+			"Id": "Part52",
+			"Name": "摸乳"
+		},
+		{
+			"Id": "Part53",
+			"Name": "左乳擠壓"
+		},
+		{
+			"Id": "Part54",
+			"Name": "右乳擠壓"
+		},
+		{
+			"Id": "Part55",
+			"Name": "雙乳擠壓 強"
+		},
+		{
+			"Id": "Part56",
+			"Name": "雙乳擠壓 中"
+		},
+		{
+			"Id": "Part57",
+			"Name": "雙乳擠壓 小"
+		},
+		{
+			"Id": "Part58",
+			"Name": "左乳原胸"
+		},
+		{
+			"Id": "Part59",
+			"Name": "右乳原胸"
+		},
+		{
+			"Id": "Part61",
+			"Name": "絲襪陰部"
+		},
+		{
+			"Id": "Part62",
+			"Name": "掰穴控制器"
+		},
+		{
+			"Id": "Part73",
+			"Name": "右腿控制"
+		},
+		{
+			"Id": "Part76",
+			"Name": "左腿控制"
+		},
+		{
+			"Id": "Part82",
+			"Name": "頭髮陰影控制器"
+		},
+		{
+			"Id": "Part84",
+			"Name": "左手臂控制"
+		},
+		{
+			"Id": "Part85",
+			"Name": "右手臂控制"
+		},
+		{
+			"Id": "Part15",
+			"Name": "手部動作1 上衣遮罩"
+		},
+		{
+			"Id": "Part16",
+			"Name": "絲襪陰部"
+		},
+		{
+			"Id": "Part18",
+			"Name": "手開穴"
+		},
+		{
+			"Id": "Part19",
+			"Name": "內衣遮罩"
+		},
+		{
+			"Id": "Part20",
+			"Name": "奶罩遮罩"
+		},
+		{
+			"Id": "Part21",
+			"Name": "開穴2"
+		},
+		{
+			"Id": "Part22",
+			"Name": "開穴3"
+		},
+		{
+			"Id": "Part26",
+			"Name": "奶罩控制"
+		},
+		{
+			"Id": "Part36",
+			"Name": "左罩"
+		},
+		{
+			"Id": "Part40",
+			"Name": "右罩"
+		},
+		{
+			"Id": "Part44",
+			"Name": "半脫3+最後內衣遮罩"
+		},
+		{
+			"Id": "Part46",
+			"Name": "內衣遮罩"
+		},
+		{
+			"Id": "Part47",
+			"Name": "正常奶罩遮罩"
+		},
+		{
+			"Id": "Part49",
+			"Name": "內褲加濕器"
+		},
+		{
+			"Id": "Part64",
+			"Name": "潮濕變化"
+		},
+		{
+			"Id": "Part65",
+			"Name": "精液變化"
+		},
+		{
+			"Id": "Part66",
+			"Name": "調教後陰部"
+		},
+		{
+			"Id": "Part67",
+			"Name": "開穴1"
+		},
+		{
+			"Id": "Part68",
+			"Name": "開穴2"
+		},
+		{
+			"Id": "Part69",
+			"Name": "開穴3"
+		},
+		{
+			"Id": "Part70",
+			"Name": "插入/拔出"
+		},
+		{
+			"Id": "Part74",
+			"Name": "右白襪"
+		},
+		{
+			"Id": "Part75",
+			"Name": "右絲襪"
+		},
+		{
+			"Id": "Part77",
+			"Name": "左襪子"
+		},
+		{
+			"Id": "Part78",
+			"Name": "左絲襪"
+		},
+		{
+			"Id": "Part27",
+			"Name": "左罩"
+		},
+		{
+			"Id": "Part29",
+			"Name": "右罩"
+		},
+		{
+			"Id": "Part37",
+			"Name": "左全穿0"
+		},
+		{
+			"Id": "Part38",
+			"Name": "左半脫1"
+		},
+		{
+			"Id": "Part39",
+			"Name": "左半脫2"
+		},
+		{
+			"Id": "Part41",
+			"Name": "右全穿0"
+		},
+		{
+			"Id": "Part42",
+			"Name": "右半脫1"
+		},
+		{
+			"Id": "Part43",
+			"Name": "右半脫2"
+		},
+		{
+			"Id": "Part45",
+			"Name": "半脫3"
+		},
+		{
+			"Id": "Part28",
+			"Name": "左全穿0"
+		},
+		{
+			"Id": "Part30",
+			"Name": "右全穿0"
+		}
+	],
+	"CombinedParameters": [
+		[
+			"ParamEyeBallX",
+			"ParamEyeBallY"
+		]
+	]
+}
