@@ -1,5 +1,5 @@
-import * as PIXI from "https://esm.sh/pixi.js@7";
-import { Live2DModel } from "https://esm.sh/pixi-live2d-display@0.5.0-beta.7";
+import * as PIXI from "https://unpkg.com/pixi.js@7/dist/pixi.min.mjs";
+import { Live2DModel } from "https://unpkg.com/pixi-live2d-display@0.5.0-beta.7/dist/index.mjs";
 
 async function init() {
     const app = new PIXI.Application({
