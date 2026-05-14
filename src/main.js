@@ -6,7 +6,7 @@ async function init() {
         resizeTo: window
     });
 
-    // 讀取已經修正過路徑的模型
+    // 使用全域變數 PIXI.live2d
     const model = await PIXI.live2d.Live2DModel.from("public/model/model.model3.json");
     app.stage.addChild(model);
     
