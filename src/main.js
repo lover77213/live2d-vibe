@@ -33,6 +33,7 @@ let blinkTarget = 1, blinkCurrent = 1;        // 對應 眨眼
 // 🔒 鎖定與雙擊判定狀態
 let isParam2Locked = false;
 let isParam7Locked = false;
+let lockHistory = []; // 🌟 記憶體：用來記錄鎖定物件的先後順序
 let lastTapTime = 0;
 
 // ⭐ 初始縮放係數
@@ -176,18 +177,27 @@ function startBlinkLoop() {
 function setupInteraction() {
   app.view.style.touchAction = "none";
 
-  // 1. 雙擊螢幕恢復原狀
+  // 1. 🌟 雙擊螢幕：只恢復「上一個」鎖定的物件
   app.view.addEventListener('pointerdown', (e) => {
     const currentTime = Date.now();
     if (currentTime - lastTapTime < 300) {
-      // 觸發雙擊！重置所有鎖定與參數
-      isParam2Locked = false;
-      targetClothes = -1;
-      
-      isParam7Locked = false;
-      targetParam7 = -1;
-      
-      targetParam5 = -1;
+      if (lockHistory.length > 0) {
+        // 取出記憶體中最後一個鎖定的名稱
+        const lastLocked = lockHistory.pop(); 
+        
+        if (lastLocked === 'Param2') {
+          isParam2Locked = false;
+          targetClothes = -1;
+          targetParam5 = -1; // 順便把 Param5 歸位
+          console.log("🔄 復原：Param2");
+        } else if (lastLocked === 'Param7') {
+          isParam7Locked = false;
+          targetParam7 = -1;
+          console.log("🔄 復原：Param7");
+        }
+      } else {
+        console.log("ℹ️ 已經全部復原，沒有可以恢復的物件了");
+      }
     }
     lastTapTime = currentTime;
   });
@@ -238,15 +248,15 @@ function setupInteraction() {
     if (!isOnModel) return;
     isOnModel = false; 
 
-    // 3. 判斷鎖定條件
-    // 假設 Param2 拉到 1 代表完全消失/脫掉
-    if (targetClothes === 1) {
+    // 3. 🌟 判斷鎖定條件，並把鎖定的東西加入記憶體 (lockHistory)
+    if (targetClothes === 1 && !isParam2Locked) {
       isParam2Locked = true;
+      lockHistory.push('Param2'); // 記下來
     }
     
-    // Param7 拉到 2.8 代表完全消失
-    if (targetParam7 === 2.8) {
+    if (targetParam7 === 2.8 && !isParam7Locked) {
       isParam7Locked = true;
+      lockHistory.push('Param7'); // 記下來
     }
 
     // 4. Param5 放開即彈回
