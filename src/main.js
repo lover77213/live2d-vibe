@@ -129,10 +129,16 @@ function createZoomButtons() {
 function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
+  
+  // 衣服 1 (Param2)：維持原本的速度
   currentClothes = lerp(currentClothes, targetClothes, 0.15);
   core.setParameterValueById("Param2", currentClothes);
-  currentParam7 = lerp(currentParam7, targetParam7, 0.15);
+  
+  // 衣服 2 (Param7)：🌟 將速度從 0.15 大幅提升到 0.45 或 0.5
+  currentParam7 = lerp(currentParam7, targetParam7, 0.45);
   core.setParameterValueById("Param7", currentParam7);
+  
+  // 眨眼：維持原本的速度
   blinkCurrent = lerp(blinkCurrent, blinkTarget, 0.25);
   core.setParameterValueById("ParamEyeLOpen", blinkCurrent);
   core.setParameterValueById("ParamEyeROpen", blinkCurrent);
