@@ -6,7 +6,7 @@ async function init() {
         resizeTo: window
     });
 
-    // 透過全域變數 PIXI.live2d 存取插件
+    // 透過全域變數 PIXI.live2d 讀取
     const model = await PIXI.live2d.Live2DModel.from("public/model/model.model3.json");
     app.stage.addChild(model);
     
