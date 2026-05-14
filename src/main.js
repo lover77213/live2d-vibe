@@ -1,6 +1,3 @@
-/**
- * 🚀 PIXI 應用程式初始化 (強化畫質設定)
- */
 const app = new PIXI.Application({
   resizeTo: window,
   backgroundAlpha: 0,
