@@ -153,22 +153,42 @@ function setupInteraction() {
   app.view.style.touchAction = "none";
   app.view.onpointerdown = (e) => {
     const { innerWidth: w, innerHeight: h } = window;
+    // 判斷點擊區域是否在模型身上
     if (e.clientX < w * 0.7 && e.clientY > h * 0.1 && e.clientY < h * 0.9) {
       isOnModel = true;
       startY = e.clientY;
     }
   };
+  
   app.view.onpointermove = (e) => {
     if (!isOnModel) return;
     const diffY = startY - e.clientY;
+    
     if (diffY > 0) {
+      // 向上拖曳 (原本的換衣服邏輯維持不變)
       targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
     } else {
+      // 向下拖曳 (Param7 吸附邏輯)
       const down = Math.abs(diffY);
-      targetParam7 = down < 30 ? -1 : (down < 80 ? 0 : (down < 140 ? 1 : (down < 200 ? 2 : 3)));
+      
+      // 根據拖曳距離(像素)，指定要「吸附」的目標數值
+      if (down < 30) {
+        targetParam7 = -1;    // 預設狀態 (未達觸發距離)
+      } else if (down < 80) {
+        targetParam7 = 0.8;   // 第一階段停靠點
+      } else if (down < 140) {
+        targetParam7 = 1.6;   // 第二階段停靠點
+      } else if (down < 200) {
+        targetParam7 = 2.4;   // 第三階段停靠點
+      } else {
+        targetParam7 = 2.8;   // 第四階段停靠點 (拉到底)
+      }
     }
   };
-  app.view.onpointerup = () => { isOnModel = false; };
+  
+  app.view.onpointerup = () => { 
+    isOnModel = false; 
+  };
 }
 
 async function start() {
