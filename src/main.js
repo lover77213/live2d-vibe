@@ -9,12 +9,11 @@ async function init() {
         resizeTo: window
     });
 
-    // 根據截圖，正確路徑是 public/model/model.model3.json
+    // 根據截圖 1.12.08.png，路徑必須包含 public/model/
     const model = await Live2DModel.from("public/model/model.model3.json");
     app.stage.addChild(model);
     
     model.x = 0;
     model.y = 0;
 }
-
 init();
