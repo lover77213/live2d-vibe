@@ -1,18 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
     <title>Live2D Vibe</title>
     <style>
-        body { margin: 0; background-color: transparent; overflow: hidden; }
-        canvas { width: 100vw; height: 100vh; display: block; }
+        body { margin: 0; overflow: hidden; background: transparent; }
+        canvas { width: 100vw; height: 100vh; }
     </style>
+    <!-- 引入最穩定的庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
+    <script src="live2dcubismcore.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.5.0-beta.7/dist/index.min.js"></script>
 </head>
 <body>
     <canvas id="canvas"></canvas>
-    <!-- 移除開頭的斜線，確保在 GitHub Pages 正常載入 -->
-    <script src="live2dcubismcore.min.js"></script>
-    <script type="module" src="src/main.js"></script>
+    <script src="src/main.js"></script>
 </body>
 </html>
