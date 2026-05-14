@@ -7,12 +7,16 @@
         body { margin: 0; overflow: hidden; background: transparent; }
         canvas { width: 100vw; height: 100vh; }
     </style>
+    <!-- 1. 核心底層 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
+    <!-- 2. Cubism 核心（本地檔案） -->
     <script src="live2dcubismcore.min.js"></script>
+    <!-- 3. Live2D 顯示插件 -->
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.5.0-beta.7/dist/index.min.js"></script>
 </head>
 <body>
     <canvas id="canvas"></canvas>
+    <!-- 4. 你的邏輯代碼 -->
     <script src="src/main.js"></script>
 </body>
 </html>
