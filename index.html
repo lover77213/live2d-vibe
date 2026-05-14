@@ -1,22 +1,21 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Live2D Vibe</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: transparent; }
-        canvas { width: 100vw; height: 100vh; }
-    </style>
-    <!-- 1. 核心底層 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
-    <!-- 2. Cubism 核心（本地檔案） -->
-    <script src="live2dcubismcore.min.js"></script>
-    <!-- 3. Live2D 顯示插件 -->
-    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.5.0-beta.7/dist/index.min.js"></script>
-</head>
-<body>
-    <canvas id="canvas"></canvas>
-    <!-- 4. 你的邏輯代碼 -->
-    <script src="src/main.js"></script>
-</body>
-</html>
+async function init() {
+    // 這裡直接使用全域變數 PIXI
+    const app = new PIXI.Application({
+        view: document.getElementById("canvas"),
+        autoStart: true,
+        backgroundAlpha: 0,
+        resizeTo: window
+    });
+
+    // 透過全域插件 PIXI.live2d 載入模型
+    // 確保路徑與你的 GitHub 結構一致
+    const model = await PIXI.live2d.Live2DModel.from("public/model/model.model3.json");
+    
+    app.stage.addChild(model);
+    
+    // 初始位置調整
+    model.x = 0;
+    model.y = 0;
+}
+
+init();
