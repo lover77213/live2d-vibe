@@ -33,6 +33,7 @@ let targetParam5 = -1, currentParam5 = -1;    // Param5 (向上接管)
 let targetParam3 = -1, currentParam3 = -1;    // Param3 (右滑)
 let targetParam = -1, currentParam = -1;      // Param (左滑)
 let targetParam6 = 0, currentParam6 = 0;      // Param6 (長按3秒觸發彩蛋，目標為2)
+let targetParam8 = 0, currentParam8 = 0;      // 🌟 Param8 (Param7 鎖定時的長按蓄力)
 let blinkTarget = 1, blinkCurrent = 1;        
 
 // 🔒 鎖定、記憶體與計時狀態
@@ -42,6 +43,8 @@ let isParam3Locked = false;
 let isParamLocked = false;  
 let isParam6Triggered = false; // 標記 Param6 是否已觸發 (不可逆)
 let param5HoldStartTime = 0;   // 記錄 Param5 維持在 1 的時間
+let isHoldingForParam8 = false; // 🌟 標記是否正在為 Param8 長按
+let param8HoldStartTime = 0;    // 🌟 記錄 Param8 的長按起始時間
 let lockHistory = [];          // 記憶體堆疊
 let lastTapTime = 0;
 
@@ -148,6 +151,23 @@ function updateParams() {
     param5HoldStartTime = 0; // 手指滑掉或放開，計時器歸零
   }
 
+  // 🌟 Param8 長按蓄力與階梯式吸附邏輯
+  if (isHoldingForParam8 && isParam7Locked) {
+    const holdTime = Date.now() - param8HoldStartTime;
+    // 每 0.4 秒升一級 (可根據手感自行微調)
+    if (holdTime < 400) {
+      targetParam8 = 0;
+    } else if (holdTime < 800) {
+      targetParam8 = 1;
+    } else if (holdTime < 1200) {
+      targetParam8 = 2;
+    } else {
+      targetParam8 = 3;
+    }
+  } else {
+    targetParam8 = 0; // 手放開或滑動取消時，目標回歸 0
+  }
+
   currentClothes = lerp(currentClothes, targetClothes, 0.15);
   core.setParameterValueById("Param2", currentClothes);
 
@@ -163,9 +183,12 @@ function updateParams() {
   currentParam = lerp(currentParam, targetParam, 0.45);
   core.setParameterValueById("Param", currentParam);
   
-  // 🌟 Param6 (設定較慢的 0.05 速度，營造緩慢變化的戲劇感)
   currentParam6 = lerp(currentParam6, targetParam6, 0.05);
   core.setParameterValueById("Param6", currentParam6);
+
+  // 🌟 Param8 的過渡速度設定為 0.2，有彈性地段落吸附與瞬間回彈
+  currentParam8 = lerp(currentParam8, targetParam8, 0.2);
+  core.setParameterValueById("Param8", currentParam8);
 
   blinkCurrent = lerp(blinkCurrent, blinkTarget, 0.25);
   core.setParameterValueById("ParamEyeLOpen", blinkCurrent);
@@ -231,6 +254,12 @@ function setupInteraction() {
     startX = e.data.originalEvent.clientX || e.data.global.x; 
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
+
+    // 🌟 啟動長按蓄力機制：只要 Param7 處於鎖定狀態，按住螢幕就開始計算
+    if (isParam7Locked) {
+      isHoldingForParam8 = true;
+      param8HoldStartTime = Date.now();
+    }
   });
   
   window.addEventListener('pointermove', (e) => {
@@ -241,6 +270,9 @@ function setupInteraction() {
     // 判斷並鎖死滑動方向 (容錯 10px)
     if (!swipeAxis && (Math.abs(diffX) > 10 || Math.abs(diffY) > 10)) {
       swipeAxis = Math.abs(diffX) > Math.abs(diffY) ? 'x' : 'y';
+      
+      // 🌟 如果使用者開始滑動(超出容錯值)，就取消 Param8 的長按蓄力
+      isHoldingForParam8 = false;
     }
     
     if (swipeAxis === 'x') {
@@ -260,7 +292,7 @@ function setupInteraction() {
     } else if (swipeAxis === 'y') {
       // ⬆️⬇️ 縱向滑動
       if (diffY > 0) {
-        // 🌟 互斥機制：如果左右 (Param3 或 Param) 處於鎖定狀態，則完全禁止向上滑動
+        // 互斥機制：如果左右 (Param3 或 Param) 處於鎖定狀態，則完全禁止向上滑動
         if (!isParam3Locked && !isParamLocked) {
           if (isParam2Locked) {
             targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
@@ -289,7 +321,11 @@ function setupInteraction() {
     isOnModel = false; 
     swipeAxis = null;
 
-    // 🌟 判斷鎖定條件
+    // 🌟 手指放開，立即取消 Param8 的長按並回彈
+    isHoldingForParam8 = false;
+    targetParam8 = 0;
+
+    // 判斷鎖定條件
     if (targetClothes === 1 && !isParam2Locked) {
       isParam2Locked = true;
       lockHistory.push('Param2');
@@ -346,7 +382,7 @@ async function start() {
     app.ticker.add(updateParams);
     
     resize();
-    console.log("✅ 畫質強化版已啟動，所有終極互動邏輯已上線！");
+    console.log("✅ 畫質強化版已啟動，Param8 蓄力長按系統完美上線！");
   } catch (err) {
     console.error("啟動失敗:", err);
   }
