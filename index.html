@@ -1,21 +1,18 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live2D Vibe</title>
-    
-    <!-- 讀取你剛剛確認存在的本地檔案 -->
-    <script src="./live2dcubismcore.min.js"></script>
-
     <style>
-        body { margin: 0; background-color: #222; overflow: hidden; }
-        canvas { display: block; width: 100vw; height: 100vh; }
+        body { margin: 0; background-color: transparent; overflow: hidden; }
+        canvas { width: 100vw; height: 100vh; display: block; }
     </style>
 </head>
 <body>
-    <div id="app"></div>
-    <!-- Vite 入口 -->
-    <script type="module" src="/src/main.js"></script>
+    <canvas id="canvas"></canvas>
+    <!-- 移除開頭的斜線，確保在 GitHub Pages 正常載入 -->
+    <script src="live2dcubismcore.min.js"></script>
+    <script type="module" src="src/main.js"></script>
 </body>
 </html>
