@@ -39,7 +39,7 @@ let blinkTarget = 1, blinkCurrent = 1;
 let isParam2Locked = false;
 let isParam7Locked = false;
 let isParam3Locked = false; 
-let isParamLocked = false;  
+let isParamLocked = false;  // 🌟 Param 鎖定狀態
 let isParam6Triggered = false; // 🌟 標記 Param6 是否已觸發 (不可逆)
 let param5HoldStartTime = 0;   // 🌟 記錄 Param5 維持在 1 的時間
 let lockHistory = [];       // 記憶體堆疊
@@ -260,10 +260,15 @@ function setupInteraction() {
     } else if (swipeAxis === 'y') {
       // ⬆️⬇️ 縱向滑動
       if (diffY > 0) {
-        if (isParam2Locked) {
-          targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+        // 🌟 新增互斥機制：如果左右 (Param3 或 Param) 處於鎖定狀態，則完全禁止向上滑動
+        if (!isParam3Locked && !isParamLocked) {
+          if (isParam2Locked) {
+            targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+          } else {
+            targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+          }
         } else {
-          targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+          console.log("⛔ 左右狀態尚未解除，禁止向上滑動！");
         }
       } else {
         if (!isParam7Locked) {
@@ -340,7 +345,7 @@ async function start() {
     app.ticker.add(updateParams);
     
     resize();
-    console.log("✅ 畫質強化版已啟動，長按彩蛋與左右互斥機制已完美就緒！");
+    console.log("✅ 畫質強化版已啟動，左右狀態阻擋向上滑動功能已上線！");
   } catch (err) {
     console.error("啟動失敗:", err);
   }
