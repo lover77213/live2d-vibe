@@ -2,6 +2,16 @@
 	"Version": 3,
 	"Parameters": [
 		{
+			"Id": "ParamAngleX",
+			"GroupId": "ParamGroup",
+			"Name": "角度Ｘ"
+		},
+		{
+			"Id": "ParamAngleY",
+			"GroupId": "ParamGroup",
+			"Name": "角度Ｙ"
+		},
+		{
 			"Id": "ParamAngleZ",
 			"GroupId": "ParamGroup",
 			"Name": "角度 Z"
@@ -72,9 +82,9 @@
 			"Name": "嘴 变形"
 		},
 		{
-			"Id": "Param7",
-			"GroupId": "",
-			"Name": "內衣"
+			"Id": "ParamMouthOpenY",
+			"GroupId": "ParamGroup5",
+			"Name": "嘴 开闭"
 		},
 		{
 			"Id": "ParamBrowLY",
@@ -232,6 +242,10 @@
 		{
 			"Id": "Part72",
 			"Name": "腿部"
+		},
+		{
+			"Id": "Part79",
+			"Name": "裙子1"
 		},
 		{
 			"Id": "Part80",
@@ -430,6 +444,10 @@
 			"Name": "內褲加濕器"
 		},
 		{
+			"Id": "Part63",
+			"Name": "血液變化"
+		},
+		{
 			"Id": "Part64",
 			"Name": "潮濕變化"
 		},
@@ -519,6 +537,10 @@
 		}
 	],
 	"CombinedParameters": [
+		[
+			"ParamAngleX",
+			"ParamAngleY"
+		],
 		[
 			"ParamEyeBallX",
 			"ParamEyeBallY"
