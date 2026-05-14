@@ -23,9 +23,12 @@ Live2DModel.registerTicker(PIXI.Ticker);
 let model;
 let startY = 0;
 let isOnModel = false;
-let targetClothes = -1, currentClothes = -1;
-let targetParam7 = -1, currentParam7 = -1;
-let blinkTarget = 1, blinkCurrent = 1;
+
+// 🌟 參數狀態管理
+let targetClothes = -1, currentClothes = -1;  // 對應 Param2
+let targetParam7 = -1, currentParam7 = -1;    // 對應 Param7
+let targetParam5 = -1, currentParam5 = -1;    // 🌟 新增：對應 Param5
+let blinkTarget = 1, blinkCurrent = 1;        // 對應 眨眼
 
 // ⭐ 初始縮放係數
 let userScaleOffset = 0.5; 
@@ -126,6 +129,9 @@ function createZoomButtons() {
   document.body.appendChild(container);
 }
 
+/**
+ * ⚙️ 更新所有 Live2D 參數
+ */
 function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
@@ -133,8 +139,12 @@ function updateParams() {
   // 衣服 1 (Param2)：維持原本的速度
   currentClothes = lerp(currentClothes, targetClothes, 0.15);
   core.setParameterValueById("Param2", currentClothes);
+
+  // 🌟 衣服 3 (Param5)：新增條件式觸發，速度設為 0.45 保持絲滑無殘影
+  currentParam5 = lerp(currentParam5, targetParam5, 0.45);
+  core.setParameterValueById("Param5", currentParam5);
   
-  // 衣服 2 (Param7)：🌟 將速度從 0.15 大幅提升到 0.45 或 0.5
+  // 衣服 2 (Param7)：速度提升到 0.45，解決半透明過渡幀
   currentParam7 = lerp(currentParam7, targetParam7, 0.45);
   core.setParameterValueById("Param7", currentParam7);
   
@@ -155,6 +165,9 @@ function startBlinkLoop() {
   loop();
 }
 
+/**
+ * 👆 設定互動邏輯
+ */
 function setupInteraction() {
   app.view.style.touchAction = "none";
   app.view.onpointerdown = (e) => {
@@ -171,10 +184,16 @@ function setupInteraction() {
     const diffY = startY - e.clientY;
     
     if (diffY > 0) {
-      // 向上拖曳 (原本的換衣服邏輯維持不變)
-      targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+      // 🌟 向上拖曳邏輯：條件式觸發 🌟
+      if (targetClothes === -1) {
+        // 當 Param2 處於 -1 (消失) 狀態時，往上滑改為控制 Param5
+        targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+      } else {
+        // 否則維持控制 Param2
+        targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+      }
     } else {
-      // 向下拖曳 (Param7 吸附邏輯)
+      // 向下拖曳：Param7 吸附邏輯
       const down = Math.abs(diffY);
       
       // 根據拖曳距離(像素)，指定要「吸附」的目標數值
@@ -200,7 +219,6 @@ function setupInteraction() {
 async function start() {
   try {
     console.log("⏳ 正在讀取模型...");
-    // 這裡換成你原本讀取成功的路徑
     const modelPath = "public/model/model.model3.json";
 
     model = await Live2DModel.from(modelPath, { autoUpdate: true });
