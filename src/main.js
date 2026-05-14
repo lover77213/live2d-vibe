@@ -27,8 +27,13 @@ let isOnModel = false;
 // 🌟 參數狀態管理
 let targetClothes = -1, currentClothes = -1;  // 對應 Param2
 let targetParam7 = -1, currentParam7 = -1;    // 對應 Param7
-let targetParam5 = -1, currentParam5 = -1;    // 🌟 新增：對應 Param5
+let targetParam5 = -1, currentParam5 = -1;    // 對應 Param5
 let blinkTarget = 1, blinkCurrent = 1;        // 對應 眨眼
+
+// 🔒 鎖定與雙擊判定狀態
+let isParam2Locked = false;
+let isParam7Locked = false;
+let lastTapTime = 0;
 
 // ⭐ 初始縮放係數
 let userScaleOffset = 0.5; 
@@ -136,19 +141,19 @@ function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
-  // 衣服 1 (Param2)：維持原本的速度
+  // Param2 (速度 0.15)
   currentClothes = lerp(currentClothes, targetClothes, 0.15);
   core.setParameterValueById("Param2", currentClothes);
 
-  // 🌟 衣服 3 (Param5)：新增條件式觸發，速度設為 0.45 保持絲滑無殘影
+  // Param5 (速度 0.45 保持順暢)
   currentParam5 = lerp(currentParam5, targetParam5, 0.45);
   core.setParameterValueById("Param5", currentParam5);
   
-  // 衣服 2 (Param7)：速度提升到 0.45，解決半透明過渡幀
+  // Param7 (速度 0.45 解決過渡幀)
   currentParam7 = lerp(currentParam7, targetParam7, 0.45);
   core.setParameterValueById("Param7", currentParam7);
   
-  // 眨眼：維持原本的速度
+  // 眨眼
   blinkCurrent = lerp(blinkCurrent, blinkTarget, 0.25);
   core.setParameterValueById("ParamEyeLOpen", blinkCurrent);
   core.setParameterValueById("ParamEyeROpen", blinkCurrent);
@@ -166,54 +171,87 @@ function startBlinkLoop() {
 }
 
 /**
- * 👆 設定互動邏輯
+ * 👆 設定互動邏輯 (精準觸控與鎖定)
  */
 function setupInteraction() {
   app.view.style.touchAction = "none";
-  app.view.onpointerdown = (e) => {
-    const { innerWidth: w, innerHeight: h } = window;
-    // 判斷點擊區域是否在模型身上
-    if (e.clientX < w * 0.7 && e.clientY > h * 0.1 && e.clientY < h * 0.9) {
-      isOnModel = true;
-      startY = e.clientY;
+
+  // 1. 雙擊螢幕恢復原狀
+  app.view.addEventListener('pointerdown', (e) => {
+    const currentTime = Date.now();
+    if (currentTime - lastTapTime < 300) {
+      // 觸發雙擊！重置所有鎖定與參數
+      isParam2Locked = false;
+      targetClothes = -1;
+      
+      isParam7Locked = false;
+      targetParam7 = -1;
+      
+      targetParam5 = -1;
     }
-  };
+    lastTapTime = currentTime;
+  });
+
+  // 2. 精準觸控：將點擊判定綁定在模型上
+  model.interactive = true; 
+  model.buttonMode = true; 
+
+  model.on('pointerdown', (e) => {
+    isOnModel = true;
+    startY = e.data.global.y; // 取得模型上的 Y 座標
+  });
   
-  app.view.onpointermove = (e) => {
+  // 拖曳判定綁定在 window 確保滑動不中斷
+  window.addEventListener('pointermove', (e) => {
     if (!isOnModel) return;
     const diffY = startY - e.clientY;
     
     if (diffY > 0) {
-      // 🌟 向上拖曳邏輯：條件式觸發 🌟
-      if (targetClothes === -1) {
-        // 當 Param2 處於 -1 (消失) 狀態時，往上滑改為控制 Param5
+      // 向上拖曳
+      if (isParam2Locked) {
+        // Param2 已鎖定，改為控制 Param5
         targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
       } else {
-        // 否則維持控制 Param2
+        // Param2 尚未鎖定，控制 Param2
         targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
       }
     } else {
-      // 向下拖曳：Param7 吸附邏輯
-      const down = Math.abs(diffY);
-      
-      // 根據拖曳距離(像素)，指定要「吸附」的目標數值
-      if (down < 30) {
-        targetParam7 = -1;    // 預設狀態 (未達觸發距離)
-      } else if (down < 80) {
-        targetParam7 = 0.8;   // 第一階段停靠點
-      } else if (down < 140) {
-        targetParam7 = 1.6;   // 第二階段停靠點
-      } else if (down < 200) {
-        targetParam7 = 2.4;   // 第三階段停靠點
-      } else {
-        targetParam7 = 2.8;   // 第四階段停靠點 (拉到底)
+      // 向下拖曳
+      if (!isParam7Locked) {
+        const down = Math.abs(diffY);
+        if (down < 30) {
+          targetParam7 = -1;
+        } else if (down < 80) {
+          targetParam7 = 0.8;
+        } else if (down < 140) {
+          targetParam7 = 1.6;
+        } else if (down < 200) {
+          targetParam7 = 2.4;
+        } else {
+          targetParam7 = 2.8;
+        }
       }
     }
-  };
+  });
   
-  app.view.onpointerup = () => { 
+  window.addEventListener('pointerup', () => { 
+    if (!isOnModel) return;
     isOnModel = false; 
-  };
+
+    // 3. 判斷鎖定條件
+    // 假設 Param2 拉到 1 代表完全消失/脫掉
+    if (targetClothes === 1) {
+      isParam2Locked = true;
+    }
+    
+    // Param7 拉到 2.8 代表完全消失
+    if (targetParam7 === 2.8) {
+      isParam7Locked = true;
+    }
+
+    // 4. Param5 放開即彈回
+    targetParam5 = -1;
+  });
 }
 
 async function start() {
@@ -239,13 +277,15 @@ async function start() {
     app.stage.addChild(model);
     model.internalModel.eyeBlink = null;
 
-    setupInteraction();
+    // 必須在模型 addChild 後呼叫 setupInteraction，否則 model.interactive 會報錯
+    setupInteraction(); 
+    
     startBlinkLoop();
     createZoomButtons(); 
     app.ticker.add(updateParams);
     
     resize();
-    console.log("✅ 畫質強化版已啟動，包含互動與按鈕！");
+    console.log("✅ 畫質強化版已啟動，包含完美互動邏輯！");
   } catch (err) {
     console.error("啟動失敗:", err);
   }
