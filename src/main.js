@@ -9,8 +9,8 @@ async function init() {
         resizeTo: window
     });
 
-    // 這裡的路徑請確保與你的 model3.json 位置一致
-    const model = await Live2DModel.from("public/model/model.model3.json");
+    // 自動抓取剛才上傳的中文檔名模型
+    const model = await Live2DModel.from("精細模型.model3.json");
     app.stage.addChild(model);
     
     model.x = 0;
