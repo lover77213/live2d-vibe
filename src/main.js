@@ -21,12 +21,10 @@ const Live2DModel = PIXI.live2d.Live2DModel;
 Live2DModel.registerTicker(PIXI.Ticker);
 
 let model;
-let startX = 0; 
-let startY = 0; 
-let currentDiffX = 0; // 實時 X 軸滑動距離
-let currentDiffY = 0; // 實時 Y 軸滑動距離
+let startX = 0; // 🌟 X 軸起始位置 (用於左右滑動)
+let startY = 0; // Y 軸起始位置 (用於上下滑動)
 let isOnModel = false;
-let swipeAxis = null; 
+let swipeAxis = null; // 🌟 滑動軸向鎖定 (防止斜滑同時觸發)
 
 // 🌟 參數狀態管理
 let targetClothes = -1, currentClothes = -1;  // Param2 (上下)
@@ -34,8 +32,8 @@ let targetParam7 = -1, currentParam7 = -1;    // Param7 (向下)
 let targetParam5 = -1, currentParam5 = -1;    // Param5 (向上接管)
 let targetParam3 = -1, currentParam3 = -1;    // Param3 (右滑)
 let targetParam = -1, currentParam = -1;      // Param (左滑)
-let targetParam6 = 0, currentParam6 = 0;      // Param6 (長按3秒觸發彩蛋)
-let targetParam8 = 0, currentParam8 = 0;      // 🌟 Param8 (指定部位長按蓄力)
+let targetParam6 = 0, currentParam6 = 0;      // Param6 (長按3秒觸發彩蛋，目標為2)
+let targetParam8 = 0, currentParam8 = 0;      // 🌟 Param8 (Param7 鎖定時的長按蓄力)
 let blinkTarget = 1, blinkCurrent = 1;        
 
 // 🔒 鎖定、記憶體與計時狀態
@@ -43,11 +41,11 @@ let isParam2Locked = false;
 let isParam7Locked = false;
 let isParam3Locked = false; 
 let isParamLocked = false;  
-let isParam6Triggered = false; 
-let param5HoldStartTime = 0;   
-let isHoldingForParam8 = false; // 🌟 標記是否成功按在指定部位上
+let isParam6Triggered = false; // 標記 Param6 是否已觸發 (不可逆)
+let param5HoldStartTime = 0;   // 記錄 Param5 維持在 1 的時間
+let isHoldingForParam8 = false; // 🌟 標記是否正在為 Param8 長按
 let param8HoldStartTime = 0;    // 🌟 記錄 Param8 的長按起始時間
-let lockHistory = [];       
+let lockHistory = [];          // 記憶體堆疊
 let lastTapTime = 0;
 
 let userScaleOffset = 0.5; 
@@ -55,8 +53,12 @@ let zoomLock = false;
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
+/**
+ * 📏 自動縮放與畫質維持
+ */
 function resize() {
   if (!model) return;
+
   try {
     const baseScale = window.innerHeight * 0.0004;
     let finalScale = baseScale * userScaleOffset;
@@ -79,6 +81,9 @@ function resize() {
   }
 }
 
+/**
+ * 🎨 建立縮放按鈕
+ */
 function createZoomButtons() {
   const existing = document.getElementById('zoom-container');
   if (existing) existing.remove();
@@ -108,9 +113,12 @@ function createZoomButtons() {
   const handleZoom = (amount) => {
     if (zoomLock) return;
     zoomLock = true;
+    
     userScaleOffset = parseFloat((userScaleOffset + amount).toFixed(2));
     userScaleOffset = Math.max(0.1, Math.min(userScaleOffset, 5.0));
+    
     resize();
+    
     setTimeout(() => { zoomLock = false; }, 400);
   };
 
@@ -122,44 +130,42 @@ function createZoomButtons() {
   document.body.appendChild(container);
 }
 
+/**
+ * ⚙️ 更新所有 Live2D 參數
+ */
 function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
-  // Param5 長按 3 秒計時邏輯
+  // 🌟 隱藏彩蛋：Param5 長按 3 秒計時邏輯
   if (targetParam5 === 1 && !isParam6Triggered) {
-    if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
-    else if (Date.now() - param5HoldStartTime >= 3000) {
+    if (param5HoldStartTime === 0) {
+      param5HoldStartTime = Date.now(); // 開始計時
+    } else if (Date.now() - param5HoldStartTime >= 3000) {
+      // 撐過 3 秒，觸發 Param6 不可逆狀態！
       isParam6Triggered = true;
-      targetParam6 = 2; 
+      targetParam6 = 2; // 目標值設定為 2
+      console.log("💥 彩蛋觸發！Param5 停留超過3秒，Param6 已永久改變為 2！");
     }
   } else if (targetParam5 !== 1) {
-    param5HoldStartTime = 0; 
+    param5HoldStartTime = 0; // 手指滑掉或放開，計時器歸零
   }
 
-  // 🌟 Param8 指定部位長按蓄力邏輯
-  let isChargingParam8 = false;
-  
-  // 條件：必須 Param7 達到 2.8、手指按在畫面上，且「成功點擊到 Part58 或 Part59」
-  if (targetParam7 === 2.8 && isOnModel && isHoldingForParam8) {
-    if (swipeAxis === null) {
-      isChargingParam8 = true; // 沒滑動，純按住
-    } else if (swipeAxis === 'y' && currentDiffY <= 0) {
-      isChargingParam8 = true; // 滑到底部後繼續按住
-    }
-  }
-
-  if (isChargingParam8) {
-    if (param8HoldStartTime === 0) param8HoldStartTime = Date.now();
+  // 🌟 Param8 長按蓄力與階梯式吸附邏輯
+  if (isHoldingForParam8 && isParam7Locked) {
     const holdTime = Date.now() - param8HoldStartTime;
-    // 每 0.3 秒升一級
-    if (holdTime < 300) targetParam8 = 0;
-    else if (holdTime < 600) targetParam8 = 1;
-    else if (holdTime < 900) targetParam8 = 2;
-    else targetParam8 = 3;
+    // 每 0.4 秒升一級 (可根據手感自行微調)
+    if (holdTime < 400) {
+      targetParam8 = 0;
+    } else if (holdTime < 800) {
+      targetParam8 = 1;
+    } else if (holdTime < 1200) {
+      targetParam8 = 2;
+    } else {
+      targetParam8 = 3;
+    }
   } else {
-    param8HoldStartTime = 0;
-    targetParam8 = 0; // 未達條件或手放開時，目標瞬間回歸 0
+    targetParam8 = 0; // 手放開或滑動取消時，目標回歸 0
   }
 
   currentClothes = lerp(currentClothes, targetClothes, 0.15);
@@ -180,6 +186,7 @@ function updateParams() {
   currentParam6 = lerp(currentParam6, targetParam6, 0.05);
   core.setParameterValueById("Param6", currentParam6);
 
+  // 🌟 Param8 的過渡速度設定為 0.2，有彈性地段落吸附與瞬間回彈
   currentParam8 = lerp(currentParam8, targetParam8, 0.2);
   core.setParameterValueById("Param8", currentParam8);
 
@@ -199,10 +206,13 @@ function startBlinkLoop() {
   loop();
 }
 
+/**
+ * 👆 設定互動邏輯 (十字滑動、互斥鎖定)
+ */
 function setupInteraction() {
   app.view.style.touchAction = "none";
 
-  // 1. 雙擊螢幕
+  // 1. 雙擊螢幕：只恢復「上一個」鎖定的物件 (排除不可逆的 Param6)
   app.view.addEventListener('pointerdown', (e) => {
     const currentTime = Date.now();
     if (currentTime - lastTapTime < 300) {
@@ -227,81 +237,80 @@ function setupInteraction() {
           targetParam = -1;
           console.log("🔄 復原：Param (左滑)");
         }
+      } else {
+        console.log("ℹ️ 已經全部復原");
       }
     }
     lastTapTime = currentTime;
   });
 
-  // 2. 精準觸控
+  // 2. 精準觸控：綁定在模型上
   model.interactive = true; 
   model.buttonMode = true; 
 
   model.on('pointerdown', (e) => {
     isOnModel = true;
+    // 統一使用原生視窗座標，確保左右靈敏度 100% 相同
     startX = e.data.originalEvent.clientX || e.data.global.x; 
     startY = e.data.originalEvent.clientY || e.data.global.y; 
-    currentDiffX = 0; 
-    currentDiffY = 0; 
     swipeAxis = null; 
 
-    // 🌟 部位點擊判定：只有在 Param7 鎖定時，且點中特定部位才允許蓄力
+    // 🌟 啟動長按蓄力機制：只要 Param7 處於鎖定狀態，按住螢幕就開始計算
     if (isParam7Locked) {
-      const hitAreas = model.hitTest(e.data.global.x, e.data.global.y) || [];
-      if (hitAreas.includes('Part58') || hitAreas.includes('Part59')) {
-        isHoldingForParam8 = true;
-        console.log("🎯 成功點擊目標物件 (Part58/Part59)，準備蓄力 Param8！");
-      } else {
-        console.log("❌ 未點擊在 Part58 或 Part59 上，當前點擊部位為：", hitAreas);
-      }
+      isHoldingForParam8 = true;
+      param8HoldStartTime = Date.now();
     }
   });
   
   window.addEventListener('pointermove', (e) => {
     if (!isOnModel) return;
+    const diffX = e.clientX - startX; 
+    const diffY = startY - e.clientY; 
     
-    currentDiffX = e.clientX - startX; 
-    currentDiffY = startY - e.clientY; 
-    
-    // 判斷並鎖死滑動方向
-    if (!swipeAxis && (Math.abs(currentDiffX) > 10 || Math.abs(currentDiffY) > 10)) {
-      swipeAxis = Math.abs(currentDiffX) > Math.abs(currentDiffY) ? 'x' : 'y';
+    // 判斷並鎖死滑動方向 (容錯 10px)
+    if (!swipeAxis && (Math.abs(diffX) > 10 || Math.abs(diffY) > 10)) {
+      swipeAxis = Math.abs(diffX) > Math.abs(diffY) ? 'x' : 'y';
       
-      // 🌟 如果使用者開始明顯滑動，立刻取消部位的長按判定
+      // 🌟 如果使用者開始滑動(超出容錯值)，就取消 Param8 的長按蓄力
       isHoldingForParam8 = false;
     }
     
     if (swipeAxis === 'x') {
-      // ➡️ 橫向滑動 (左右防打架)
-      // 🌟【終極互斥防衝突】：只有在 Param2 和 Param7 都「沒有動作」且「沒鎖定」時，才能左右滑動
-      if (targetClothes === -1 && !isParam2Locked && targetParam7 === -1 && !isParam7Locked) { 
-        if (currentDiffX > 0) {
-          if (!isParam3Locked) targetParam3 = currentDiffX < 40 ? -1 : (currentDiffX < 100 ? 0 : 1);
+      // ➡️ 橫向滑動
+      if (targetClothes === -1 && !isParam2Locked) { 
+        if (diffX > 0) {
+          // 【右滑】觸發 Param3，並強制壓制 Param
+          if (!isParam3Locked) targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1);
           if (!isParamLocked) targetParam = -1; 
         } else {
-          const moveLeft = Math.abs(currentDiffX);
+          // 【左滑】觸發 Param，並強制壓制 Param3
+          const moveLeft = Math.abs(diffX);
           if (!isParamLocked) targetParam = moveLeft < 40 ? -1 : (moveLeft < 100 ? 0 : 1);
           if (!isParam3Locked) targetParam3 = -1;
         }
       }
     } else if (swipeAxis === 'y') {
-      // ⬆️⬇️ 縱向滑動 (上下防打架)
-      // 🌟【終極互斥防衝突】：只有在 Param3 和 Param 都「沒有動作」且「沒鎖定」時，才能上下滑動
-      if (targetParam3 === -1 && !isParam3Locked && targetParam === -1 && !isParamLocked) {
-        if (currentDiffY > 0) {
+      // ⬆️⬇️ 縱向滑動
+      if (diffY > 0) {
+        // 互斥機制：如果左右 (Param3 或 Param) 處於鎖定狀態，則完全禁止向上滑動
+        if (!isParam3Locked && !isParamLocked) {
           if (isParam2Locked) {
-            targetParam5 = currentDiffY < 30 ? -1 : (currentDiffY < 120 ? 0 : 1);
+            targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
           } else {
-            targetClothes = currentDiffY < 30 ? -1 : (currentDiffY < 120 ? 0 : 1);
+            targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
           }
         } else {
-          if (!isParam7Locked) {
-            const down = Math.abs(currentDiffY);
-            if (down < 30) targetParam7 = -1;
-            else if (down < 80) targetParam7 = 0.8;
-            else if (down < 140) targetParam7 = 1.6;
-            else if (down < 200) targetParam7 = 2.4;
-            else targetParam7 = 2.8;
-          }
+          console.log("⛔ 左右狀態尚未解除，禁止向上滑動！");
+        }
+      } else {
+        // 向下拖曳
+        if (!isParam7Locked) {
+          const down = Math.abs(diffY);
+          if (down < 30) targetParam7 = -1;
+          else if (down < 80) targetParam7 = 0.8;
+          else if (down < 140) targetParam7 = 1.6;
+          else if (down < 200) targetParam7 = 2.4;
+          else targetParam7 = 2.8;
         }
       }
     }
@@ -312,8 +321,9 @@ function setupInteraction() {
     isOnModel = false; 
     swipeAxis = null;
 
-    // 🌟 手指放開，立即取消部位的長按標記
+    // 🌟 手指放開，立即取消 Param8 的長按並回彈
     isHoldingForParam8 = false;
+    targetParam8 = 0;
 
     // 判斷鎖定條件
     if (targetClothes === 1 && !isParam2Locked) {
@@ -372,7 +382,7 @@ async function start() {
     app.ticker.add(updateParams);
     
     resize();
-    console.log("✅ 畫質強化版已啟動，精準部位點擊蓄力系統與全向防衝突已正式上線！");
+    console.log("✅ 畫質強化版已啟動，Param8 蓄力長按系統完美上線！");
   } catch (err) {
     console.error("啟動失敗:", err);
   }
