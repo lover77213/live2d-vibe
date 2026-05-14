@@ -17,6 +17,11 @@
 			"Name": "角度 Z"
 		},
 		{
+			"Id": "Param7",
+			"GroupId": "ParamGroup2",
+			"Name": "內衣脫下"
+		},
+		{
 			"Id": "Param2",
 			"GroupId": "ParamGroup2",
 			"Name": "內褲脫掉"
