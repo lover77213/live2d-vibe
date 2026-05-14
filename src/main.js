@@ -1,5 +1,5 @@
-import * as PIXI from "pixi.js";
-import { Live2DModel } from "pixi-live2d-display/cubism4";
+import * as PIXI from "https://esm.sh/pixi.js@7";
+import { Live2DModel } from "https://esm.sh/pixi-live2d-display@0.5.0-beta.7/cubism4";
 
 /**
  * ⚙️ 核心配置 - 顯存極限優化版
