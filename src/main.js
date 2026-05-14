@@ -32,17 +32,17 @@ let targetParam7 = -1, currentParam7 = -1;    // Param7 (向下)
 let targetParam5 = -1, currentParam5 = -1;    // Param5 (向上接管)
 let targetParam3 = -1, currentParam3 = -1;    // Param3 (右滑)
 let targetParam = -1, currentParam = -1;      // Param (左滑)
-let targetParam6 = 0, currentParam6 = 0;      // 🌟 Param6 (長按3秒觸發彩蛋，預設0)
+let targetParam6 = 0, currentParam6 = 0;      // Param6 (長按3秒觸發彩蛋，目標為2)
 let blinkTarget = 1, blinkCurrent = 1;        
 
 // 🔒 鎖定、記憶體與計時狀態
 let isParam2Locked = false;
 let isParam7Locked = false;
 let isParam3Locked = false; 
-let isParamLocked = false;  // 🌟 Param 鎖定狀態
-let isParam6Triggered = false; // 🌟 標記 Param6 是否已觸發 (不可逆)
-let param5HoldStartTime = 0;   // 🌟 記錄 Param5 維持在 1 的時間
-let lockHistory = [];       // 記憶體堆疊
+let isParamLocked = false;  
+let isParam6Triggered = false; // 標記 Param6 是否已觸發 (不可逆)
+let param5HoldStartTime = 0;   // 記錄 Param5 維持在 1 的時間
+let lockHistory = [];          // 記憶體堆疊
 let lastTapTime = 0;
 
 let userScaleOffset = 0.5; 
@@ -141,8 +141,8 @@ function updateParams() {
     } else if (Date.now() - param5HoldStartTime >= 3000) {
       // 撐過 3 秒，觸發 Param6 不可逆狀態！
       isParam6Triggered = true;
-      targetParam6 = 1;
-      console.log("💥 彩蛋觸發！Param5 停留超過3秒，Param6 已永久改變！");
+      targetParam6 = 2; // 目標值設定為 2
+      console.log("💥 彩蛋觸發！Param5 停留超過3秒，Param6 已永久改變為 2！");
     }
   } else if (targetParam5 !== 1) {
     param5HoldStartTime = 0; // 手指滑掉或放開，計時器歸零
@@ -227,7 +227,7 @@ function setupInteraction() {
 
   model.on('pointerdown', (e) => {
     isOnModel = true;
-    // 🌟 統一使用原生視窗座標，確保左右靈敏度 100% 相同
+    // 統一使用原生視窗座標，確保左右靈敏度 100% 相同
     startX = e.data.originalEvent.clientX || e.data.global.x; 
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
@@ -247,11 +247,11 @@ function setupInteraction() {
       // ➡️ 橫向滑動
       if (targetClothes === -1 && !isParam2Locked) { 
         if (diffX > 0) {
-          // 🌟 【右滑】觸發 Param3，並強制壓制 Param
+          // 【右滑】觸發 Param3，並強制壓制 Param
           if (!isParam3Locked) targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1);
           if (!isParamLocked) targetParam = -1; 
         } else {
-          // 🌟 【左滑】觸發 Param，並強制壓制 Param3
+          // 【左滑】觸發 Param，並強制壓制 Param3
           const moveLeft = Math.abs(diffX);
           if (!isParamLocked) targetParam = moveLeft < 40 ? -1 : (moveLeft < 100 ? 0 : 1);
           if (!isParam3Locked) targetParam3 = -1;
@@ -260,7 +260,7 @@ function setupInteraction() {
     } else if (swipeAxis === 'y') {
       // ⬆️⬇️ 縱向滑動
       if (diffY > 0) {
-        // 🌟 新增互斥機制：如果左右 (Param3 或 Param) 處於鎖定狀態，則完全禁止向上滑動
+        // 🌟 互斥機制：如果左右 (Param3 或 Param) 處於鎖定狀態，則完全禁止向上滑動
         if (!isParam3Locked && !isParamLocked) {
           if (isParam2Locked) {
             targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
@@ -271,6 +271,7 @@ function setupInteraction() {
           console.log("⛔ 左右狀態尚未解除，禁止向上滑動！");
         }
       } else {
+        // 向下拖曳
         if (!isParam7Locked) {
           const down = Math.abs(diffY);
           if (down < 30) targetParam7 = -1;
@@ -309,7 +310,7 @@ function setupInteraction() {
       lockHistory.push('Param');
     }
 
-    // 未達鎖定條件的，手指放開即彈回
+    // 未達鎖定條件的參數，手指放開即彈回
     targetParam5 = -1;
     if (!isParam3Locked) targetParam3 = -1;
     if (!isParamLocked) targetParam = -1; 
@@ -345,7 +346,7 @@ async function start() {
     app.ticker.add(updateParams);
     
     resize();
-    console.log("✅ 畫質強化版已啟動，左右狀態阻擋向上滑動功能已上線！");
+    console.log("✅ 畫質強化版已啟動，所有終極互動邏輯已上線！");
   } catch (err) {
     console.error("啟動失敗:", err);
   }
