@@ -8,19 +8,19 @@
         canvas { width: 100vw; height: 100vh; }
     </style>
     
-    <!-- 1. PIXI 核心 (v6.5.2 絕對穩定版，必須最先載入) -->
+    <!-- 1. PIXI 核心 (v6.5.2) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.5.2/browser/pixi.min.js"></script>
     
-    <!-- 2. Live2D 官方 Cubism 核心 -->
+    <!-- 2. Live2D 官方 Cubism 核心 (負責解析 .model3.json) -->
     <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
     
-    <!-- 3. Live2D 顯示插件 (移除 beta 標籤，使用穩定正式版) -->
-    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/index.min.js"></script>
+    <!-- 3. Live2D 顯示插件 (🌟【關鍵修正】改用專門為 Cubism 4 打造的版本！) -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/cubism4.min.js"></script>
 
 </head>
 <body>
     <canvas id="canvas"></canvas>
-    <!-- 用新的參數強迫瀏覽器抓最新的 JavaScript -->
-    <script src="src/main.js?v=final"></script>
+    <!-- 用新的參數強迫瀏覽器抓最新的 HTML -->
+    <script src="src/main.js?v=victory"></script>
 </body>
 </html>
