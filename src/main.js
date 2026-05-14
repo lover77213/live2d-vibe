@@ -16,12 +16,13 @@ app.view.style.left = "0";
 app.view.style.zIndex = "1";
 document.body.appendChild(app.view);
 
+// 從全域變數抓取 Live2D 模組
 const Live2DModel = PIXI.live2d.Live2DModel;
 Live2DModel.registerTicker(PIXI.Ticker);
 
 let model;
-let startX = 0; 
-let startY = 0; 
+let startX = 0; // 🌟 X 軸起始位置 (用於左右滑動)
+let startY = 0; // Y 軸起始位置 (用於上下滑動)
 let isOnModel = false;
 let swipeAxis = null; // 🌟 滑動軸向鎖定 (防止斜滑同時觸發)
 
@@ -30,14 +31,17 @@ let targetClothes = -1, currentClothes = -1;  // Param2 (上下)
 let targetParam7 = -1, currentParam7 = -1;    // Param7 (向下)
 let targetParam5 = -1, currentParam5 = -1;    // Param5 (向上接管)
 let targetParam3 = -1, currentParam3 = -1;    // Param3 (右滑)
-let targetParam = -1, currentParam = -1;      // 🌟 Param (左滑)
+let targetParam = -1, currentParam = -1;      // Param (左滑)
+let targetParam6 = 0, currentParam6 = 0;      // 🌟 Param6 (長按3秒觸發彩蛋，預設0)
 let blinkTarget = 1, blinkCurrent = 1;        
 
-// 🔒 鎖定與雙擊判定狀態
+// 🔒 鎖定、記憶體與計時狀態
 let isParam2Locked = false;
 let isParam7Locked = false;
 let isParam3Locked = false; 
-let isParamLocked = false;  // 🌟 Param 鎖定狀態
+let isParamLocked = false;  
+let isParam6Triggered = false; // 🌟 標記 Param6 是否已觸發 (不可逆)
+let param5HoldStartTime = 0;   // 🌟 記錄 Param5 維持在 1 的時間
 let lockHistory = [];       // 記憶體堆疊
 let lastTapTime = 0;
 
@@ -46,8 +50,12 @@ let zoomLock = false;
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
+/**
+ * 📏 自動縮放與畫質維持
+ */
 function resize() {
   if (!model) return;
+
   try {
     const baseScale = window.innerHeight * 0.0004;
     let finalScale = baseScale * userScaleOffset;
@@ -70,6 +78,9 @@ function resize() {
   }
 }
 
+/**
+ * 🎨 建立縮放按鈕
+ */
 function createZoomButtons() {
   const existing = document.getElementById('zoom-container');
   if (existing) existing.remove();
@@ -99,9 +110,12 @@ function createZoomButtons() {
   const handleZoom = (amount) => {
     if (zoomLock) return;
     zoomLock = true;
+    
     userScaleOffset = parseFloat((userScaleOffset + amount).toFixed(2));
     userScaleOffset = Math.max(0.1, Math.min(userScaleOffset, 5.0));
+    
     resize();
+    
     setTimeout(() => { zoomLock = false; }, 400);
   };
 
@@ -113,10 +127,27 @@ function createZoomButtons() {
   document.body.appendChild(container);
 }
 
+/**
+ * ⚙️ 更新所有 Live2D 參數
+ */
 function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
+  // 🌟 隱藏彩蛋：Param5 長按 3 秒計時邏輯
+  if (targetParam5 === 1 && !isParam6Triggered) {
+    if (param5HoldStartTime === 0) {
+      param5HoldStartTime = Date.now(); // 開始計時
+    } else if (Date.now() - param5HoldStartTime >= 3000) {
+      // 撐過 3 秒，觸發 Param6 不可逆狀態！
+      isParam6Triggered = true;
+      targetParam6 = 1;
+      console.log("💥 彩蛋觸發！Param5 停留超過3秒，Param6 已永久改變！");
+    }
+  } else if (targetParam5 !== 1) {
+    param5HoldStartTime = 0; // 手指滑掉或放開，計時器歸零
+  }
+
   currentClothes = lerp(currentClothes, targetClothes, 0.15);
   core.setParameterValueById("Param2", currentClothes);
 
@@ -126,14 +157,16 @@ function updateParams() {
   currentParam7 = lerp(currentParam7, targetParam7, 0.45);
   core.setParameterValueById("Param7", currentParam7);
 
-  // Param3 (右滑) 
   currentParam3 = lerp(currentParam3, targetParam3, 0.45);
   core.setParameterValueById("Param3", currentParam3);
 
-  // 🌟 Param (左滑)
   currentParam = lerp(currentParam, targetParam, 0.45);
   core.setParameterValueById("Param", currentParam);
   
+  // 🌟 Param6 (設定較慢的 0.05 速度，營造緩慢變化的戲劇感)
+  currentParam6 = lerp(currentParam6, targetParam6, 0.05);
+  core.setParameterValueById("Param6", currentParam6);
+
   blinkCurrent = lerp(blinkCurrent, blinkTarget, 0.25);
   core.setParameterValueById("ParamEyeLOpen", blinkCurrent);
   core.setParameterValueById("ParamEyeROpen", blinkCurrent);
@@ -156,7 +189,7 @@ function startBlinkLoop() {
 function setupInteraction() {
   app.view.style.touchAction = "none";
 
-  // 1. 雙擊螢幕：只恢復「上一個」鎖定的物件
+  // 1. 雙擊螢幕：只恢復「上一個」鎖定的物件 (排除不可逆的 Param6)
   app.view.addEventListener('pointerdown', (e) => {
     const currentTime = Date.now();
     if (currentTime - lastTapTime < 300) {
@@ -176,7 +209,7 @@ function setupInteraction() {
           isParam3Locked = false;
           targetParam3 = -1;
           console.log("🔄 復原：Param3 (右滑)");
-        } else if (lastLocked === 'Param') { // 🌟 解鎖 Param
+        } else if (lastLocked === 'Param') { 
           isParamLocked = false;
           targetParam = -1;
           console.log("🔄 復原：Param (左滑)");
@@ -194,8 +227,9 @@ function setupInteraction() {
 
   model.on('pointerdown', (e) => {
     isOnModel = true;
-    startX = e.data.global.x; 
-    startY = e.data.global.y; 
+    // 🌟 統一使用原生視窗座標，確保左右靈敏度 100% 相同
+    startX = e.data.originalEvent.clientX || e.data.global.x; 
+    startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
   });
   
@@ -204,7 +238,7 @@ function setupInteraction() {
     const diffX = e.clientX - startX; 
     const diffY = startY - e.clientY; 
     
-    // 判斷並鎖死滑動方向 (容錯 10px 避免手抖誤判)
+    // 判斷並鎖死滑動方向 (容錯 10px)
     if (!swipeAxis && (Math.abs(diffX) > 10 || Math.abs(diffY) > 10)) {
       swipeAxis = Math.abs(diffX) > Math.abs(diffY) ? 'x' : 'y';
     }
@@ -212,18 +246,15 @@ function setupInteraction() {
     if (swipeAxis === 'x') {
       // ➡️ 橫向滑動
       if (targetClothes === -1 && !isParam2Locked) { 
-        // 確保只有在 Param2 是 -1 時才能觸發左右滑動
         if (diffX > 0) {
-          // 右滑：觸發 Param3
-          if (!isParam3Locked) {
-            targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1);
-          }
+          // 🌟 【右滑】觸發 Param3，並強制壓制 Param
+          if (!isParam3Locked) targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1);
+          if (!isParamLocked) targetParam = -1; 
         } else {
-          // 左滑：觸發 Param 🌟
-          if (!isParamLocked) {
-            const moveLeft = Math.abs(diffX);
-            targetParam = moveLeft < 40 ? -1 : (moveLeft < 100 ? 0 : 1);
-          }
+          // 🌟 【左滑】觸發 Param，並強制壓制 Param3
+          const moveLeft = Math.abs(diffX);
+          if (!isParamLocked) targetParam = moveLeft < 40 ? -1 : (moveLeft < 100 ? 0 : 1);
+          if (!isParam3Locked) targetParam3 = -1;
         }
       }
     } else if (swipeAxis === 'y') {
@@ -252,7 +283,7 @@ function setupInteraction() {
     isOnModel = false; 
     swipeAxis = null;
 
-    // 🌟 判斷鎖定條件，若達標則鎖定並放入記憶體堆疊
+    // 🌟 判斷鎖定條件
     if (targetClothes === 1 && !isParam2Locked) {
       isParam2Locked = true;
       lockHistory.push('Param2');
@@ -268,13 +299,12 @@ function setupInteraction() {
       lockHistory.push('Param3');
     }
 
-    // 🌟 判斷 Param (左滑) 是否達到 1，是的話鎖死
     if (targetParam === 1 && !isParamLocked) {
       isParamLocked = true;
       lockHistory.push('Param');
     }
 
-    // 🌟 未達鎖定條件的參數，放開即彈回 -1
+    // 未達鎖定條件的，手指放開即彈回
     targetParam5 = -1;
     if (!isParam3Locked) targetParam3 = -1;
     if (!isParamLocked) targetParam = -1; 
@@ -310,7 +340,7 @@ async function start() {
     app.ticker.add(updateParams);
     
     resize();
-    console.log("✅ 畫質強化版已啟動，完美多向十字滑動與互斥鎖定生效中！");
+    console.log("✅ 畫質強化版已啟動，長按彩蛋與左右互斥機制已完美就緒！");
   } catch (err) {
     console.error("啟動失敗:", err);
   }
