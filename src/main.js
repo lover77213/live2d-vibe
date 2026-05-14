@@ -8,9 +8,13 @@ async function init() {
         backgroundAlpha: 0,
         resizeTo: window
     });
-    const model = await Live2DModel.from("精細模型.model3.json");
+
+    // 根據截圖，正確路徑是 public/model/model.model3.json
+    const model = await Live2DModel.from("public/model/model.model3.json");
     app.stage.addChild(model);
+    
     model.x = 0;
     model.y = 0;
 }
+
 init();
