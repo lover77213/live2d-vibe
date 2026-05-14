@@ -7,16 +7,20 @@
         body { margin: 0; overflow: hidden; background: #cccccc; } /* 灰色背景測試用 */
         canvas { width: 100vw; height: 100vh; }
     </style>
-    <!-- 1. PIXI 核心 (標準版) -->
-    <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.2.4/dist/pixi.min.js"></script>
-    <!-- 2. Live2D 官方 Cubism 核心 (直接用官方伺服器，免去本地路徑煩惱) -->
+    
+    <!-- 1. Live2D 官方 Cubism 核心 (必須最先載入) -->
     <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
-    <!-- 3. Live2D 顯示插件 (標準版) -->
+    
+    <!-- 2. PIXI 核心 (改用 v6 版本，完美相容全域模式) -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"></script>
+    
+    <!-- 3. Live2D 顯示插件 -->
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.5.0-beta.7/dist/index.min.js"></script>
+
 </head>
 <body>
     <canvas id="canvas"></canvas>
-    <!-- 4. 你的邏輯代碼 (回歸最單純的腳本載入) -->
-    <script src="src/main.js?v=999"></script>
+    <!-- 每次都要換一個數字強迫更新，這次用 777 -->
+    <script src="src/main.js?v=777"></script>
 </body>
 </html>
