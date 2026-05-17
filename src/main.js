@@ -308,19 +308,23 @@ function updatePiPLayout() {
   pipBorder.lineStyle(6, 0xffb3c6, 0.9);
   pipBorder.drawRoundedRect(0, 0, size, size, 20);
   
-  // 200% 放大特寫 (如果裡面的角色也想跟著放大，可以把這裡的 zoomLevel 調高)
-  const zoomLevel = 2.0;
-  pipSprite.scale.set(zoomLevel);
+  // 🌟 絕對固定縮放倍率核心：抵銷模型的全域縮放，讓特寫畫面「永遠保持相同的物理放大比例」
+  // 這樣一來不管你按 + 或 - 縮放畫面，右上角框框裡的特寫尺寸跟對焦點都不會受影響！
+  const fixedAbsoluteZoom = 1.0; // 這是基準絕對大小
+  const currentModelScale = model.scale.y; 
+  const effectiveZoom = fixedAbsoluteZoom / currentModelScale; // 反向抵銷
   
-  // 🌟 動態對焦核心邏輯：確保無論如何縮放都不會跑位
+  pipSprite.scale.set(effectiveZoom);
+  
+  // 🌟 動態對焦：精準鎖定陰部，且透過 effectiveZoom 讓它在任何縮放倍率下都穩穩卡在中央
   const focusYOffset = 580; 
-  const yOffset = focusYOffset * model.scale.y; 
+  const yOffset = focusYOffset * currentModelScale; 
   
   const focusX = model.x;
   const focusY = model.y + yOffset;
   
-  pipSprite.x = size / 2 - focusX * zoomLevel;
-  pipSprite.y = size / 2 - focusY * zoomLevel;
+  pipSprite.x = size / 2 - focusX * effectiveZoom;
+  pipSprite.y = size / 2 - focusY * effectiveZoom;
 }
 
 /**
@@ -343,7 +347,11 @@ function updateParams() {
   // 🔍 更新 200% 特寫畫中畫的漸顯漸隱與渲染
   if (pipContainer) {
     const pipTargetAlpha = (targetParam5 > 0) ? 1.0 : 0.0;
-    currentPipAlpha = lerp(currentPipAlpha, pipTargetAlpha, 0.15); 
+    
+    // 🌟 非對稱漸隱邏輯：出現時很快 (0.15)，放開消失時超級慢 (0.015) 
+    // 這樣就會產生「脫衣服動畫很快彈回去，但特寫殘影慢慢消失」的效果！
+    const alphaLerpSpeed = (pipTargetAlpha > currentPipAlpha) ? 0.15 : 0.015;
+    currentPipAlpha = lerp(currentPipAlpha, pipTargetAlpha, alphaLerpSpeed); 
     
     pipContainer.alpha = currentPipAlpha;
     
