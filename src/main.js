@@ -289,7 +289,7 @@ function updatePiPLayout() {
   // 🌟 這裡把方框的尺寸直接放大三倍 ( * 3 )
   const isMobile = window.innerWidth < window.innerHeight;
   const baseSize = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 520);
-  const size = baseSize * 3; 
+  const size = baseSize * 2; 
   
   const padding = 25;
   
