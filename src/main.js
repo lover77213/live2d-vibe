@@ -33,7 +33,7 @@ let targetParam5 = -1, currentParam5 = -1;
 let targetParam3 = -1, currentParam3 = -1;    
 let targetParam = -1, currentParam = -1;      
 let targetParam6 = 0, currentParam6 = 0;      
-let currentParam8 = 0; // 直接操作當前值，拔除累贅進度
+let currentParam8 = 0;             
 let blinkTarget = 1, blinkCurrent = 1;        
 
 // 🔒 鎖定、記憶體與連續操作狀態
@@ -53,13 +53,18 @@ let zoomDirection = 0; // 🌟 縮放方向狀態：1 (放大), -1 (縮小), 0 (
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /**
- * 📏 自動縮放與畫質維持 (極速版，移除耗能迴圈)
+ * 📏 自動縮放與畫質維持 (修復：電腦版不變，手機版才縮小 20%)
  */
 function resize() {
   if (!model) return;
 
   try {
-    const paddingFactor = 0.8; 
+    // 判斷是否為直式螢幕 (手機)
+    const isMobile = window.innerWidth < window.innerHeight;
+    
+    // 🌟 手機縮小 20% 防裁切 (0.8)，電腦維持 1.0
+    const paddingFactor = isMobile ? 0.8 : 1.0; 
+    
     const scaleByWidth = (window.innerWidth * 0.00055) * paddingFactor; 
     const scaleByHeight = (window.innerHeight * 0.0004) * paddingFactor;
 
@@ -74,15 +79,13 @@ function resize() {
     model.anchor.set(0.5, 0.5);
     model.x = window.innerWidth / 2;
     model.y = window.innerHeight / 2;
-    
-    // ⚠️ 已經把耗效能的 texture 更新移到 modelLoaded 裡面了，確保長按縮放極度流暢
   } catch (err) {
     console.error("Resize 計算失敗:", err);
   }
 }
 
 /**
- * 🎨 建立長按縮放按鈕
+ * 🎨 建立長按縮放按鈕 (修復：手機版按鈕放大 50%)
  */
 function createZoomButtons() {
   const existing = document.getElementById('zoom-container');
@@ -95,11 +98,16 @@ function createZoomButtons() {
     display: flex; flex-direction: column; gap: 20px; z-index: 10000;
   `;
 
+  // 🌟 裝置偵測：如果是手機，按鈕尺寸放大 1.5 倍
+  const isMobile = window.innerWidth < window.innerHeight;
+  const btnSize = isMobile ? '97.5px' : '65px'; // 65 * 1.5 = 97.5
+  const fontSize = isMobile ? '52.5px' : '35px'; // 35 * 1.5 = 52.5
+
   const btnStyle = `
-    width: 65px; height: 65px; border-radius: 50%;
+    width: ${btnSize}; height: ${btnSize}; border-radius: 50%;
     border: 2px solid rgba(255, 255, 255, 0.8);
     background: rgba(0, 0, 0, 0.7); color: white;
-    font-size: 35px; font-weight: bold; cursor: pointer;
+    font-size: ${fontSize}; font-weight: bold; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     user-select: none; touch-action: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
   `;
@@ -110,7 +118,7 @@ function createZoomButtons() {
   const btnMinus = document.createElement('button');
   btnMinus.innerText = '－'; btnMinus.style.cssText = btnStyle;
 
-  // 🌟 長按邏輯：按下時改變方向，放開或移出時停止
+  // 長按邏輯
   const setZoom = (dir) => (e) => { e.preventDefault(); zoomDirection = dir; };
   const stopZoom = (e) => { e.preventDefault(); zoomDirection = 0; };
 
@@ -131,9 +139,9 @@ function createZoomButtons() {
  * ⚙️ 更新所有 Live2D 參數
  */
 function updateParams() {
-  // 🌟 長按縮放連續判定 (60fps 更新)
+  // 長按縮放連續判定
   if (zoomDirection !== 0) {
-    userScaleOffset += zoomDirection * 0.015; // 調整這裡改變縮放速度
+    userScaleOffset += zoomDirection * 0.015;
     userScaleOffset = Math.max(0.1, Math.min(userScaleOffset, 5.0));
     resize();
   }
@@ -141,7 +149,7 @@ function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
-  // 🌟 彩蛋邏輯
+  // 彩蛋邏輯
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
     else if (Date.now() - param5HoldStartTime >= 3000) {
@@ -152,28 +160,23 @@ function updateParams() {
     param5HoldStartTime = 0; 
   }
 
-  // 🌟 Param8 拔除阻尼感！使用直接且快速的插值
-  // 直接將目標設定為 3.0 或 0.0
+  // Param8 快速插值
   const p8Target = (isHoldingForParam8 && isParam7Locked) ? 3.0 : 0.0;
-  // 使用 0.4 的極速過渡，肉眼幾乎看不到拖泥帶水的中間過渡，只有乾脆的形變
   currentParam8 = lerp(currentParam8, p8Target, 0.4);
   core.setParameterValueById("Param8", currentParam8);
 
-  // 🌟 真・完美無縫呼吸 (絕對物理時間，100% 防卡頓)
-  // 使用 performance.now() 獲取絕對時間，並以 3000 毫秒 (3秒) 作為一個呼吸週期
-  const breathCycle = 3000;
-  // 利用取餘數 (%) 確保進度永遠在 0.0 ~ 1.0 之間完美循環，防溢位且不吃 FPS
-  const breathProgress = (performance.now() % breathCycle) / breathCycle;
-  // 轉換為標準 Sine 波浪 (0.0 ~ 1.0)
-  const breathValue = (Math.sin(breathProgress * Math.PI * 2) * 0.5) + 0.5;
+  // 🌟 真・完美獨立呼吸 (解決操作干擾卡頓)
+  // 捨棄與 ticker 綁定的增量時間，直接使用 Date.now() 除以速度常數
+  // 這樣呼吸頻率與畫面渲染率完全脫鉤，就算滑動時 FPS 下降，呼吸波浪依然連續
+  const breathValue = (Math.sin(Date.now() / 400.0) * 0.5) + 0.5;
   core.setParameterValueById("ParamBreath", breathValue);
 
 
-  // 🌟 強制左右互斥
+  // 強制左右互斥
   if (targetParam3 === 1) targetParam = -1;
   if (targetParam === 1) targetParam3 = -1;
 
-  // 其他參數平滑更新
+  // 參數平滑更新
   currentClothes = lerp(currentClothes, targetClothes, 0.15);
   core.setParameterValueById("Param2", currentClothes);
 
@@ -237,7 +240,6 @@ function setupInteraction() {
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
 
-    // 🌟 按壓蓄力
     if (isParam7Locked) isHoldingForParam8 = true;
   });
   
@@ -246,7 +248,6 @@ function setupInteraction() {
     const diffX = e.clientX - startX; 
     const diffY = startY - e.clientY; 
     
-    // 防手抖容錯 (35px)
     if (!swipeAxis && (Math.abs(diffX) > 35 || Math.abs(diffY) > 35)) {
       swipeAxis = Math.abs(diffX) > Math.abs(diffY) ? 'x' : 'y';
       isHoldingForParam8 = false; 
@@ -305,7 +306,6 @@ async function start() {
     model = await Live2DModel.from(modelPath, { autoUpdate: true });
 
     model.on('modelLoaded', () => {
-      // 🌟 將耗效能的貼圖設定移入 Loaded，確保畫面縮放效能
       model.internalModel.textures.forEach((tex) => {
         if (tex.baseTexture) {
           tex.baseTexture.mipmap = PIXI.TYPES.MIPMAP_MODES.ON;
@@ -314,6 +314,9 @@ async function start() {
         }
       });
       userScaleOffset = 0.5;
+      
+      // 確保按鈕尺寸根據初始載入時的裝置狀態設定正確
+      createZoomButtons(); 
       setTimeout(resize, 300);
     });
 
@@ -323,11 +326,14 @@ async function start() {
 
     setupInteraction(); 
     startBlinkLoop();
-    createZoomButtons(); 
     app.ticker.add(updateParams);
     
     resize();
-    window.addEventListener("resize", resize);
+    window.addEventListener("resize", () => {
+        resize();
+        // 螢幕旋轉或改變大小時，重新計算按鈕大小
+        createZoomButtons();
+    });
   } catch (err) { console.error("啟動失敗:", err); }
 }
 
