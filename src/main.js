@@ -55,21 +55,18 @@ let zoomLock = false;
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /**
- * 📏 自動縮放與畫質維持 (修復直式螢幕裁切)
+ * 📏 自動縮放與畫質維持 (🌟 終極防裁切 Fit 邏輯)
  */
 function resize() {
   if (!model) return;
 
   try {
-    let baseScale;
+    // 分別計算以「寬」和「高」為基準的理想縮放值
+    const scaleByWidth = window.innerWidth * 0.0008; 
+    const scaleByHeight = window.innerHeight * 0.0004;
 
-    if (window.innerWidth < window.innerHeight) {
-      // 📱 手機端 (直式)：以寬度為基準，並稍微縮小避免貼邊
-      baseScale = window.innerWidth * 0.00085; 
-    } else {
-      // 💻 電腦端 (橫式)：以高度為基準
-      baseScale = window.innerHeight * 0.0004;
-    }
+    // 🌟 核心：永遠取最小的那個值。這樣能保證不管螢幕多窄多長，模型絕對能完整顯示在畫面內！
+    let baseScale = Math.min(scaleByWidth, scaleByHeight);
 
     let finalScale = baseScale * userScaleOffset;
 
@@ -152,32 +149,29 @@ function updateParams() {
     param5HoldStartTime = 0; 
   }
 
-  // 🌟 Param8 終極絲滑水球動畫 (使用 SmootherStep 演算法)
-  // 取得與幀率獨立的增量時間 (秒)
+  // 🌟 Param8 終極絲滑水球動畫 (防黑幀 + 加速)
   const dt = app.ticker.elapsedMS / 1000.0;
   
   if (isHoldingForParam8 && isParam7Locked) {
-    // 擠壓速度：數值越大，充滿 1.0 的時間越短 (2.5 代表 0.4 秒擠滿)
-    param8Progress += 2.5 * dt; 
-    if (param8Progress > 1.0) param8Progress = 1.0;
+    param8Progress += 3.5 * dt; // 加快擠壓速度
   } else {
-    // 回彈速度：稍微快一點 (3.3 代表 0.3 秒回彈)
-    param8Progress -= 3.3 * dt; 
-    if (param8Progress < 0.0) param8Progress = 0.0;
+    param8Progress -= 4.0 * dt; // 加快回彈速度
   }
 
-  // SmootherStep 曲線公式 (6t^5 - 15t^4 + 10t^3)：比一般 S 曲線更極致的平滑
+  // 🌟 嚴格數值夾斷：保證進度絕對在 0.0 到 1.0 之間，防止黑幀溢位
+  param8Progress = Math.max(0.0, Math.min(1.0, param8Progress));
+
+  // SmootherStep 曲線公式：最頂級的平滑過渡
   const t = param8Progress;
   const easeT = t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
-  currentParam8 = easeT * 3.0; // 將 0~1 的曲線映射到 0~3 參數值
+  currentParam8 = easeT * 3.0; // 映射到 0~3
   core.setParameterValueById("Param8", currentParam8);
 
-  // 🌟 真・無縫循環呼吸
-  // 使用單一餘弦波，確保起伏永遠一致，絕不卡頓。
-  // 1.5 是呼吸速度，可調整。
-  breathTimer += dt * 1.5; 
-  // Math.cos 產生 -1 到 1 的波浪。 (Math.cos() * 0.5 + 0.5) 將其完美轉為 0.0 ~ 1.0
-  const breathValue = (Math.cos(breathTimer) * 0.5) + 0.5;
+  // 🌟 呼吸完美循環 (大範圍 + 無縫)
+  // 使用單一的正弦波，乘上 1.8 控制速度。
+  breathTimer += dt * 1.8; 
+  // Math.sin 會產生 -1 到 1 的波浪。將其除以 2 再加 0.5，精準映射到 0.0 ~ 1.0 之間
+  const breathValue = (Math.sin(breathTimer) / 2.0) + 0.5;
   core.setParameterValueById("ParamBreath", breathValue);
 
   // 🌟 強制左右互斥
