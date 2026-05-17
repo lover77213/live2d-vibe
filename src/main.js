@@ -33,9 +33,9 @@ let targetParam5 = -1, currentParam5 = -1;
 let targetParam3 = -1, currentParam3 = -1;    
 let targetParam = -1, currentParam = -1;      
 let targetParam6 = 0, currentParam6 = 0;      
-let currentParam8 = 0;                        
-let param8Progress = 0; // 🌟 Param8 的純淨內部進度 (0.0 ~ 1.0)
+let currentParam8 = 0; // 🌟 移除多餘進度變數，直接操作當前值              
 let blinkTarget = 1, blinkCurrent = 1;        
+let breathTimer = 0;    // 🌟 呼吸專用計時器
 
 // 🔒 鎖定、記憶體與計時狀態
 let isParam2Locked = false;
@@ -54,18 +54,19 @@ let zoomLock = false;
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /**
- * 📏 自動縮放與畫質維持 (🌟 終極防裁切 Fit 邏輯)
+ * 📏 自動縮放與畫質維持 (🌟 縮小 20% + 終極防裁切 Fit 邏輯)
  */
 function resize() {
   if (!model) return;
 
   try {
-    // 🌟 針對手機裁切問題：大幅下調寬度計算的係數 (從 0.00085 降至 0.00055)
-    // 數字越小，在窄螢幕上角色就會被縮得越小，保證兩側不被裁切
-    const scaleByWidth = window.innerWidth * 0.00055; 
-    const scaleByHeight = window.innerHeight * 0.0004;
+    // 🌟 統一縮小係數 0.8 (即縮小 20%)，確保左右預留安全邊距 (Safe Area)
+    const paddingFactor = 0.8; 
+    
+    const scaleByWidth = (window.innerWidth * 0.00055) * paddingFactor; 
+    const scaleByHeight = (window.innerHeight * 0.0004) * paddingFactor;
 
-    // 永遠取最小的那個值，保證模型絕對完整顯示！
+    // 取寬與高中較小的值，確保模型絕對不被裁切
     let baseScale = Math.min(scaleByWidth, scaleByHeight);
 
     let finalScale = baseScale * userScaleOffset;
@@ -149,31 +150,29 @@ function updateParams() {
     param5HoldStartTime = 0; 
   }
 
-  // 🌟 Param8 終極絲滑水球動畫
-  const dt = app.ticker.elapsedMS / 1000.0;
+  // 🌟 Param8 水球阻尼感 (捨棄僵硬的數學曲線，改用真正的物理漸進阻尼)
+  const p8Target = (isHoldingForParam8 && isParam7Locked) ? 3.0 : 0.0;
   
-  if (isHoldingForParam8 && isParam7Locked) {
-    param8Progress += 3.5 * dt; // 加快擠壓速度
-  } else {
-    param8Progress -= 4.0 * dt; // 加快回彈速度
-  }
-
-  // 嚴格數值夾斷：保證進度絕對在 0.0 到 1.0 之間，防止黑幀溢位
-  param8Progress = Math.max(0.0, Math.min(1.0, param8Progress));
-
-  // SmootherStep 曲線公式：最頂級的平滑過渡
-  const t = param8Progress;
-  const easeT = t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
-  currentParam8 = easeT * 3.0; // 映射到 0~3
+  // 阻尼係數設定為 0.15。這會產生越接近目標、速度越輕柔的「頂級絲滑感」，完全消除煞車鈍感。
+  currentParam8 += (p8Target - currentParam8) * 0.15 * app.ticker.deltaTime;
+  
+  // 嚴格數值夾斷：防止溢位引發的黑幀
+  currentParam8 = Math.max(0.0, Math.min(3.0, currentParam8));
   core.setParameterValueById("Param8", currentParam8);
 
-  // 🌟 真・完美無縫循環呼吸 (使用底層高精度硬體時鐘，徹底消滅微卡頓)
-  // performance.now() 保證時間是絕對流逝的，完全不受畫面掉幀或延遲影響
-  const timeSec = performance.now() / 1000.0;
+
+  // 🌟 真・無縫呼吸 (修復長時間播放造成的浮點數精度卡頓)
+  // 將每一幀的微小時間加上去，2.5 是呼吸速度
+  breathTimer += (app.ticker.elapsedMS / 1000.0) * 2.5; 
   
-  // 乘上 2.5 調整呼吸速度，正弦波映射到 0.0 ~ 1.0 之間
-  const breathValue = (Math.sin(timeSec * 2.5) * 0.5) + 0.5;
+  // 🌟 核心修復：強制將時間限制在一個完美的圓周內 (2*PI)
+  // 這樣數字永遠不會過大，保證掛機一天一夜呼吸也絕對不卡頓！
+  breathTimer = breathTimer % (Math.PI * 2); 
+  
+  // 計算完美正弦波並映射到 0.0 ~ 1.0
+  const breathValue = (Math.sin(breathTimer) * 0.5) + 0.5;
   core.setParameterValueById("ParamBreath", breathValue);
+
 
   // 🌟 強制左右互斥
   if (targetParam3 === 1) targetParam = -1;
