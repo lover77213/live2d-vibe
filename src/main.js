@@ -16,7 +16,7 @@ let targetParam5 = -1, currentParam5 = -1;
 let targetParam3 = -1, currentParam3 = -1;    
 let targetParam = -1, currentParam = -1;      
 let targetParam6 = 0, currentParam6 = 0;      
-let currentParam8 = 0;             
+let currentParam8 = 0; 
 let blinkTarget = 1, blinkCurrent = 1;        
 
 // 🔒 鎖定、記憶體與連續操作狀態
@@ -290,7 +290,7 @@ function setupInteraction() {
 }
 
 /**
- * 🚀 主啟動函數 (徹底解決白畫面問題)
+ * 🚀 主啟動函數
  */
 async function start() {
   try {
@@ -300,7 +300,7 @@ async function start() {
     document.body.style.width = '100%';
     document.body.style.height = '100%';
     document.body.style.margin = '0';
-    document.body.style.overflow = '0'; // 防止捲動干擾
+    document.body.style.overflow = 'hidden'; // 修復隱藏捲動軸的語法錯誤
     document.body.style.backgroundColor = 'transparent';
 
     const Live2DModel = PIXI.live2d.Live2DModel;
@@ -324,20 +324,21 @@ async function start() {
     app.view.style.zIndex = "1";
     document.body.appendChild(app.view);
 
+    // 載入模型 (await 會停在這裡直到載入完成)
     const modelPath = "public/model/model.model3.json";
     model = await Live2DModel.from(modelPath, { autoUpdate: true });
 
-    model.on('modelLoaded', () => {
-      model.internalModel.textures.forEach((tex) => {
-        if (tex.baseTexture) {
-          tex.baseTexture.mipmap = PIXI.TYPES.MIPMAP_MODES.ON;
-          tex.baseTexture.anisotropicLevel = 16;
-          tex.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
-        }
-      });
-      userScaleOffset = 0.5;
-      createZoomButtons(); 
+    // 🌟 拔除無效的 modelLoaded 監聽，直接在這裡執行載入後的邏輯
+    model.internalModel.textures.forEach((tex) => {
+      if (tex.baseTexture) {
+        tex.baseTexture.mipmap = PIXI.TYPES.MIPMAP_MODES.ON;
+        tex.baseTexture.anisotropicLevel = 16;
+        tex.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+      }
     });
+    
+    userScaleOffset = 0.5;
+    createZoomButtons(); // 確保按鈕立刻被建立！
 
     window.model = model;
     app.stage.addChild(model);
@@ -347,11 +348,10 @@ async function start() {
     startBlinkLoop();
     app.ticker.add(updateParams);
     
-    // 🌟 雙重強制重繪 (Double RAF)：
-    // 確保模型加入場景後，圖形引擎能 100% 準確抓到尺寸並強制渲染第一張畫面，消滅載入死角
+    // 雙重強制重繪 (Double RAF)
     requestAnimationFrame(() => {
         resize();
-        app.render(); // 強制渲染
+        app.render(); 
         requestAnimationFrame(() => {
             resize();
         });
