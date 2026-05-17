@@ -153,7 +153,8 @@ function setupCounter() {
   `;
   document.body.appendChild(counterDiv);
 
-  counterDiv.innerHTML = `累計被掰穴次數: <span style="color: #ffb3c6; font-size: 24px;">...</span>`;
+  // 🌟 名稱更新為：所有玩家總掰穴次數
+  counterDiv.innerHTML = `所有玩家總掰穴次數: <span style="color: #ffb3c6; font-size: 24px;">...</span>`;
 
   syncWithCloud();
   setInterval(syncWithCloud, 4000);
@@ -194,7 +195,8 @@ function updateCounterUI(serverValue) {
   const counterDiv = document.getElementById('global-counter-ui');
   if (!counterDiv) return;
   
-  counterDiv.innerHTML = `累計被掰穴次數: <span style="color: #ff4d88; font-size: 24px;">${globalOpenCount}</span>`;
+  // 🌟 名稱更新為：所有玩家總掰穴次數
+  counterDiv.innerHTML = `所有玩家總掰穴次數: <span style="color: #ff4d88; font-size: 24px;">${globalOpenCount}</span>`;
   
   counterDiv.style.transform = 'translateX(-50%) scale(1.15)';
   setTimeout(() => {
@@ -725,6 +727,9 @@ function setupInteraction() {
  */
 async function start() {
   try {
+    // 🌟 自動修正網頁標題名稱為「掰穴模擬器」
+    document.title = "掰穴模擬器";
+
     // 1. 建立並顯示全螢幕 Loading 動畫
     createLoadingUI();
     await updateLoadingText("初始化 WebGL 繪圖引擎...");
