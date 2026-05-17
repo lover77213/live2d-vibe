@@ -162,7 +162,7 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
     text-shadow: 2px 2px 6px rgba(0,0,0,0.8);
     transform: translate(-50%, -50%); 
     opacity: 0;
-    white-space: nowrap; /* 防止大字體被換行 */
+    white-space: nowrap; 
   `;
 
   container.appendChild(textEl);
@@ -185,6 +185,61 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
 }
 
 /**
+ * 🎯 建立 Param8 專用的隱形物理判定圖層
+ */
+function createInvisibleHitbox() {
+  if (document.getElementById('param8-invisible-hitbox')) return;
+  
+  const hitbox = document.createElement('div');
+  hitbox.id = 'param8-invisible-hitbox';
+  
+  // 設定在螢幕下半部，負責接收點擊 (開啟背景色可除錯觀看範圍)
+  hitbox.style.cssText = `
+    position: fixed;
+    left: 50%;
+    top: 65%; /* 偏下方，對應下半身位置 */
+    width: 60vw;
+    height: 40vh;
+    max-width: 400px;
+    max-height: 400px;
+    transform: translate(-50%, -50%);
+    z-index: 5000; /* 確保在最上層，但低於縮放按鈕 */
+    display: none; /* 預設為隱藏 */
+    touch-action: none;
+    /* background: rgba(0, 255, 0, 0.3); */ 
+  `;
+
+  // 綁定點擊事件 (模擬原有的 pointerdown 並且兼容雙擊復原)
+  hitbox.addEventListener('pointerdown', (e) => {
+    // 檢查雙擊復原邏輯
+    const currentTime = Date.now();
+    if (currentTime - lastTapTime < 300) {
+      if (lockHistory.length > 0) {
+        const lastLocked = lockHistory.pop(); 
+        if (lastLocked === 'Param2') { isParam2Locked = false; targetClothes = -1; targetParam5 = -1; }
+        else if (lastLocked === 'Param7') { isParam7Locked = false; targetParam7 = -1; }
+        else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
+        else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
+      }
+    }
+    lastTapTime = currentTime;
+
+    // 觸發 Param8 邏輯
+    if (isParam7Locked) {
+      isOnModel = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      swipeAxis = null;
+      
+      isHoldingForParam8 = true;
+      spawnFloatingText(e.clientX + 30, e.clientY - 60, "嗯...❤️", "#ffb3c6", 1500, "28px");
+    }
+  });
+
+  document.body.appendChild(hitbox);
+}
+
+/**
  * ⚙️ 更新所有 Live2D 參數
  */
 function updateParams() {
@@ -193,6 +248,12 @@ function updateParams() {
     userScaleOffset += zoomDirection * 0.015;
     userScaleOffset = Math.max(0.1, Math.min(userScaleOffset, 5.0));
     resize();
+  }
+
+  // 🎯 控制隱形圖層的顯示與隱藏 (Param7 被鎖定時顯示，還原時隱藏)
+  const hitbox = document.getElementById('param8-invisible-hitbox');
+  if (hitbox) {
+    hitbox.style.display = isParam7Locked ? 'block' : 'none';
   }
 
   if (!model?.internalModel?.coreModel) return;
@@ -205,25 +266,27 @@ function updateParams() {
       isParam6Triggered = true;
       targetParam6 = 2; 
       
-      // 文字改為「處女膜消失了... 💔」，縮小為 48px
+      // 文字改為「處女膜破了...💔」
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight * 0.35; 
-      spawnFloatingText(centerX, centerY, "處女膜消失了... 💔", "#ff4d4d", 3000, "48px");
+      spawnFloatingText(centerX, centerY, "處女膜破了...💔", "#ff4d4d", 3000, "48px");
     }
   } else if (targetParam5 !== 1) {
     param5HoldStartTime = 0; 
   }
 
-  // 🌟 Param8 快速插值與表情連動
+  // 🌟 Param8 與 Param5 的表情連動
   let p8Target = 0.0;
-  if (isHoldingForParam8 && isParam7Locked) {
-    p8Target = 3.0;
-    targetEyeY = -1.0;     
-    targetMouthForm = -1.0; 
+  
+  // 條件：如果正在按壓 Param8 或是 正在觸發 Param5
+  if ((isHoldingForParam8 && isParam7Locked) || targetParam5 === 1) {
+    if (isHoldingForParam8 && isParam7Locked) p8Target = 3.0; // 只有 Param8 觸發水球
+    targetEyeY = -1.0;      // 眼睛向下看
+    targetMouthForm = -1.0; // 嘴巴表情變換
   } else {
     p8Target = 0.0;
-    targetEyeY = 0.0;       
-    targetMouthForm = 0.0;  
+    targetEyeY = 0.0;       // 恢復正常眼位
+    targetMouthForm = 0.0;  // 恢復正常嘴型
   }
 
   // 平滑更新 Param8
@@ -286,6 +349,7 @@ function startBlinkLoop() {
 function setupInteraction() {
   app.view.style.touchAction = "none";
 
+  // 背景的雙擊復原邏輯
   app.view.addEventListener('pointerdown', (e) => {
     const currentTime = Date.now();
     if (currentTime - lastTapTime < 300) {
@@ -308,40 +372,8 @@ function setupInteraction() {
     startX = e.data.originalEvent.clientX || e.data.global.x; 
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
-
-    // 🌟 嚴格精準打擊 + 廣域矩形掃描 
-    if (isParam7Locked) {
-      try {
-        const hitX = e.data.global.x;
-        const hitY = e.data.global.y;
-
-        let isHit = false;
-        
-        // 矩形範圍掃描：從你點擊的位置為中心，擴大掃描一個 120x120 的矩形區域
-        // 🌟 這裡把判定區改為 'Param7'
-        for (let dx = -60; dx <= 60; dx += 20) {
-          for (let dy = -60; dy <= 60; dy += 20) {
-            const hitAreas = model.hitTest(hitX + dx, hitY + dy);
-            if (hitAreas.includes('Param7')) { // <--- 掃描 Param7 的判定區
-              isHit = true;
-              break;
-            }
-          }
-          if (isHit) break; 
-        }
-
-        // 嚴格限制：必須點擊(或包含在矩形內)才觸發
-        if (isHit) {
-          isHoldingForParam8 = true; // 即使是掃到 Param7，依然觸發水球(Param8)和表情的連動
-          
-          const clientX = e.data.originalEvent.clientX || hitX;
-          const clientY = e.data.originalEvent.clientY || hitY;
-          spawnFloatingText(clientX + 30, clientY - 60, "嗯...❤️", "#ffb3c6", 1500, "28px");
-        }
-      } catch (err) {
-        console.error("HitTest 錯誤:", err);
-      }
-    }
+    
+    // (移除了不穩定的 Live2D 內建 hitTest，全面改用隱形 HTML 圖層負責觸發)
   });
   
   window.addEventListener('pointermove', (e) => {
@@ -457,6 +489,7 @@ async function start() {
     userScaleOffset = 0.5;
     createZoomButtons(); 
     createEffectContainer(); 
+    createInvisibleHitbox(); // 🎯 建立隱形判定圖層
 
     window.model = model;
     app.stage.addChild(model);
