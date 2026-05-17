@@ -37,6 +37,14 @@ let lastTapTime = 0;
 let userScaleOffset = 0.5; 
 let zoomDirection = 0; // 縮放方向狀態：1 (放大), -1 (縮小), 0 (停止)
 
+// 🔍 畫中畫 (PiP) 特寫系統狀態
+let pipContainer;
+let pipSprite;
+let pipRenderTexture;
+let pipMask;
+let pipBorder;
+let currentPipAlpha = 0;
+
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /**
@@ -74,6 +82,11 @@ function resize() {
       
       btnPlus.style.width = btnSize; btnPlus.style.height = btnSize; btnPlus.style.fontSize = fontSize;
       btnMinus.style.width = btnSize; btnMinus.style.height = btnSize; btnMinus.style.fontSize = fontSize;
+    }
+
+    // 同步更新局部特寫的畫面配置
+    if (typeof updatePiPLayout === 'function') {
+      updatePiPLayout();
     }
   } catch (err) {
     console.error("Resize 計算失敗:", err);
@@ -206,7 +219,6 @@ function createInvisibleHitbox() {
     z-index: 5000; /* 確保在最上層 */
     display: none; /* 預設為隱藏 */
     touch-action: none;
-    /* background: rgba(0, 255, 0, 0.3); 開啟這行可看見綠色測試框 */ 
   `;
 
   // 綁定點擊事件
@@ -240,6 +252,74 @@ function createInvisibleHitbox() {
 }
 
 /**
+ * 🔍 建立 200% 局部特寫畫中畫 (PiP)
+ */
+function setupPiP() {
+  // 建立渲染紋理，解析度與主畫面一致
+  pipRenderTexture = PIXI.RenderTexture.create({
+    width: window.innerWidth,
+    height: window.innerHeight,
+    resolution: app.renderer.resolution || window.devicePixelRatio || 1
+  });
+  pipSprite = new PIXI.Sprite(pipRenderTexture);
+  
+  pipContainer = new PIXI.Container();
+  pipContainer.alpha = 0; // 初始完全隱藏
+  
+  pipMask = new PIXI.Graphics();
+  pipBorder = new PIXI.Graphics();
+  
+  pipContainer.addChild(pipSprite);
+  pipContainer.addChild(pipMask);
+  pipContainer.addChild(pipBorder);
+  pipContainer.mask = pipMask;
+  
+  // 加入主舞台，但層級要在最高
+  app.stage.addChild(pipContainer);
+  updatePiPLayout();
+}
+
+/**
+ * 🔍 更新局部特寫的大小與位置
+ */
+function updatePiPLayout() {
+  if (!pipContainer || !pipRenderTexture) return;
+  
+  pipRenderTexture.resize(window.innerWidth, window.innerHeight);
+  
+  // 設定正方形尺寸 (自適應螢幕，最大 320px)
+  const isMobile = window.innerWidth < window.innerHeight;
+  const size = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 320);
+  const padding = 25;
+  
+  // 放置在畫面右側空白處垂直置中
+  pipContainer.x = window.innerWidth - size - padding;
+  pipContainer.y = window.innerHeight / 2 - size / 2;
+  
+  // 圓角遮罩
+  pipMask.clear();
+  pipMask.beginFill(0xffffff);
+  pipMask.drawRoundedRect(0, 0, size, size, 20);
+  pipMask.endFill();
+  
+  // 繪製粉色發光感邊框
+  pipBorder.clear();
+  pipBorder.lineStyle(6, 0xffb3c6, 0.9);
+  pipBorder.drawRoundedRect(0, 0, size, size, 20);
+  
+  // 200% 放大特寫
+  const zoomLevel = 2.0;
+  pipSprite.scale.set(zoomLevel);
+  
+  // 將焦點定位在模型 Param5 的核心位置 (大約在畫面中下部 Y: 55%)
+  const focusX = window.innerWidth / 2;
+  const focusY = window.innerHeight * 0.55;
+  
+  pipSprite.x = size / 2 - focusX * zoomLevel;
+  pipSprite.y = size / 2 - focusY * zoomLevel;
+}
+
+/**
  * ⚙️ 更新所有 Live2D 參數
  */
 function updateParams() {
@@ -254,6 +334,26 @@ function updateParams() {
   const hitbox = document.getElementById('param8-invisible-hitbox');
   if (hitbox) {
     hitbox.style.display = isParam7Locked ? 'block' : 'none';
+  }
+
+  // 🔍 更新 200% 特寫畫中畫的漸顯漸隱與渲染
+  if (pipContainer) {
+    const pipTargetAlpha = (targetParam5 > 0) ? 1.0 : 0.0;
+    currentPipAlpha = lerp(currentPipAlpha, pipTargetAlpha, 0.15); // 平滑漸變
+    
+    pipContainer.alpha = currentPipAlpha;
+    
+    // 只有在肉眼可見時才消耗效能去擷取畫面
+    if (currentPipAlpha > 0.01) {
+      pipContainer.visible = false; // 為了避免無限遞迴渲染，擷取前先隱藏自己
+      try {
+        // 兼容各種 PIXI 版本的渲染紋理寫法
+        app.renderer.render(app.stage, { renderTexture: pipRenderTexture, clear: true });
+      } catch (e) {
+        app.renderer.render(app.stage, pipRenderTexture, true);
+      }
+      pipContainer.visible = true; // 擷取完畢後恢復顯示
+    }
   }
 
   if (!model?.internalModel?.coreModel) return;
@@ -394,7 +494,6 @@ function setupInteraction() {
           // 🌟 無縫解除左邊的鎖定狀態
           if (targetParam3 === -1) {
               isParam3Locked = false;
-              // 如果它之前被記錄在 lockHistory，可以選擇性地清理，但這裡先單純解除布林值即可
           }
         } else {
           const moveLeft = Math.abs(diffX);
@@ -505,6 +604,7 @@ async function start() {
     app.stage.addChild(model);
     model.internalModel.eyeBlink = null;
 
+    setupPiP(); // 🔍 建立特寫畫中畫
     setupInteraction(); 
     startBlinkLoop();
     app.ticker.add(updateParams);
