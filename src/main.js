@@ -193,23 +193,23 @@ function createInvisibleHitbox() {
   const hitbox = document.createElement('div');
   hitbox.id = 'param8-invisible-hitbox';
   
-  // 設定在螢幕下半部，負責接收點擊 (開啟背景色可除錯觀看範圍)
+  // 🌟 上移判定區 (Top 從 65% 改到 55%，貼近 Param8 的核心位置)
   hitbox.style.cssText = `
     position: fixed;
     left: 50%;
-    top: 65%; /* 偏下方，對應下半身位置 */
+    top: 55%; 
     width: 60vw;
-    height: 40vh;
+    height: 35vh;
     max-width: 400px;
     max-height: 400px;
     transform: translate(-50%, -50%);
-    z-index: 5000; /* 確保在最上層，但低於縮放按鈕 */
+    z-index: 5000; /* 確保在最上層 */
     display: none; /* 預設為隱藏 */
     touch-action: none;
-    /* background: rgba(0, 255, 0, 0.3); */ 
+    /* background: rgba(0, 255, 0, 0.3); 開啟這行可看見綠色測試框 */ 
   `;
 
-  // 綁定點擊事件 (模擬原有的 pointerdown 並且兼容雙擊復原)
+  // 綁定點擊事件
   hitbox.addEventListener('pointerdown', (e) => {
     // 檢查雙擊復原邏輯
     const currentTime = Date.now();
@@ -250,7 +250,7 @@ function updateParams() {
     resize();
   }
 
-  // 🎯 控制隱形圖層的顯示與隱藏 (Param7 被鎖定時顯示，還原時隱藏)
+  // 🎯 控制隱形圖層的顯示與隱藏
   const hitbox = document.getElementById('param8-invisible-hitbox');
   if (hitbox) {
     hitbox.style.display = isParam7Locked ? 'block' : 'none';
@@ -266,9 +266,9 @@ function updateParams() {
       isParam6Triggered = true;
       targetParam6 = 2; 
       
-      // 文字改為「處女膜破了...💔」
+      // 🌟 下移文字到胸/腹部 (Y 從 0.35 改到 0.65)，且改回「處女膜破了...💔」
       const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight * 0.35; 
+      const centerY = window.innerHeight * 0.65; 
       spawnFloatingText(centerX, centerY, "處女膜破了...💔", "#ff4d4d", 3000, "48px");
     }
   } else if (targetParam5 !== 1) {
@@ -278,8 +278,8 @@ function updateParams() {
   // 🌟 Param8 與 Param5 的表情連動
   let p8Target = 0.0;
   
-  // 條件：如果正在按壓 Param8 或是 正在觸發 Param5
-  if ((isHoldingForParam8 && isParam7Locked) || targetParam5 === 1) {
+  // 條件放寬：只要有滑動觸發 Param5 (>0) 或是按壓 Param8，就會連動表情
+  if ((isHoldingForParam8 && isParam7Locked) || targetParam5 > 0) {
     if (isHoldingForParam8 && isParam7Locked) p8Target = 3.0; // 只有 Param8 觸發水球
     targetEyeY = -1.0;      // 眼睛向下看
     targetMouthForm = -1.0; // 嘴巴表情變換
@@ -372,8 +372,6 @@ function setupInteraction() {
     startX = e.data.originalEvent.clientX || e.data.global.x; 
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
-    
-    // (移除了不穩定的 Live2D 內建 hitTest，全面改用隱形 HTML 圖層負責觸發)
   });
   
   window.addEventListener('pointermove', (e) => {
@@ -399,10 +397,9 @@ function setupInteraction() {
       }
     } else if (swipeAxis === 'y') {
       if (diffY > 0) {
-        if (!isParam3Locked && !isParamLocked) {
-          if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
-          else targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
-        }
+        // 🌟 解除了左右滑動鎖定 (Param/Param3) 的卡死 Bug，現在隨時可以往上滑！
+        if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+        else targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
       } else {
         if (!isParam7Locked) {
           const down = Math.abs(diffY);
