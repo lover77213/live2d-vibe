@@ -420,7 +420,7 @@ function updatePiPLayout() {
   }
   
   // 🌟 將內部模型的絕對放大倍率再調小 (從 0.95 降到 0.85)，讓局部縮小一點點
-  const fixedAbsoluteZoom = 0.85; 
+  const fixedAbsoluteZoom = 0.55; 
   const currentModelScale = model.scale.y || 1; 
   const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
   
