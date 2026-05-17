@@ -84,7 +84,7 @@ function resize() {
       btnMinus.style.width = btnSize; btnMinus.style.height = btnSize; btnMinus.style.fontSize = fontSize;
     }
 
-    // 同步更新局部特寫的畫面配置
+    // 🌟 同步更新局部特寫的畫面配置 (確保縮放時特寫位置不跑掉)
     if (typeof updatePiPLayout === 'function') {
       updatePiPLayout();
     }
@@ -206,7 +206,6 @@ function createInvisibleHitbox() {
   const hitbox = document.createElement('div');
   hitbox.id = 'param8-invisible-hitbox';
   
-  // 🌟 上移判定區至胸部位置 (Top 調整為 38%)
   hitbox.style.cssText = `
     position: fixed;
     left: 50%;
@@ -216,8 +215,8 @@ function createInvisibleHitbox() {
     max-width: 400px;
     max-height: 400px;
     transform: translate(-50%, -50%);
-    z-index: 5000; /* 確保在最上層 */
-    display: none; /* 預設為隱藏 */
+    z-index: 5000; 
+    display: none; 
     touch-action: none;
   `;
 
@@ -280,10 +279,10 @@ function setupPiP() {
 }
 
 /**
- * 🔍 更新局部特寫的大小與位置
+ * 🔍 🌟 動態更新局部特寫的大小與對焦位置
  */
 function updatePiPLayout() {
-  if (!pipContainer || !pipRenderTexture) return;
+  if (!pipContainer || !pipRenderTexture || !model) return;
   
   pipRenderTexture.resize(window.innerWidth, window.innerHeight);
   
@@ -292,9 +291,9 @@ function updatePiPLayout() {
   const size = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 320);
   const padding = 25;
   
-  // 放置在畫面右側空白處垂直置中
+  // 🌟 將畫中畫框框往上移一點 (避免擋住手部)
   pipContainer.x = window.innerWidth - size - padding;
-  pipContainer.y = window.innerHeight / 2 - size / 2;
+  pipContainer.y = window.innerHeight * 0.3; // 從 50% 移到 30% 高度
   
   // 圓角遮罩
   pipMask.clear();
@@ -311,9 +310,12 @@ function updatePiPLayout() {
   const zoomLevel = 2.0;
   pipSprite.scale.set(zoomLevel);
   
-  // 將焦點定位在模型 Param5 的核心位置 (大約在畫面中下部 Y: 55%)
-  const focusX = window.innerWidth / 2;
-  const focusY = window.innerHeight * 0.55;
+  // 🌟 動態對焦核心邏輯：根據模型目前的縮放與 Y 座標，動態計算 Param5 (胸部) 的相對位置
+  // yOffset 是調整對焦點的關鍵值，數值越負，對焦點越高。
+  const yOffset = -150 * model.scale.y; 
+  
+  const focusX = model.x;
+  const focusY = model.y + yOffset;
   
   pipSprite.x = size / 2 - focusX * zoomLevel;
   pipSprite.y = size / 2 - focusY * zoomLevel;
@@ -327,7 +329,7 @@ function updateParams() {
   if (zoomDirection !== 0) {
     userScaleOffset += zoomDirection * 0.015;
     userScaleOffset = Math.max(0.1, Math.min(userScaleOffset, 5.0));
-    resize();
+    resize(); // 這裡呼叫 resize 也會自動觸發 updatePiPLayout 重新對焦
   }
 
   // 🎯 控制隱形圖層的顯示與隱藏
@@ -339,20 +341,19 @@ function updateParams() {
   // 🔍 更新 200% 特寫畫中畫的漸顯漸隱與渲染
   if (pipContainer) {
     const pipTargetAlpha = (targetParam5 > 0) ? 1.0 : 0.0;
-    currentPipAlpha = lerp(currentPipAlpha, pipTargetAlpha, 0.15); // 平滑漸變
+    currentPipAlpha = lerp(currentPipAlpha, pipTargetAlpha, 0.15); 
     
     pipContainer.alpha = currentPipAlpha;
     
     // 只有在肉眼可見時才消耗效能去擷取畫面
     if (currentPipAlpha > 0.01) {
-      pipContainer.visible = false; // 為了避免無限遞迴渲染，擷取前先隱藏自己
+      pipContainer.visible = false; 
       try {
-        // 兼容各種 PIXI 版本的渲染紋理寫法
         app.renderer.render(app.stage, { renderTexture: pipRenderTexture, clear: true });
       } catch (e) {
         app.renderer.render(app.stage, pipRenderTexture, true);
       }
-      pipContainer.visible = true; // 擷取完畢後恢復顯示
+      pipContainer.visible = true; 
     }
   }
 
@@ -477,8 +478,7 @@ function setupInteraction() {
     const diffX = e.clientX - startX; 
     const diffY = startY - e.clientY; 
     
-    // 🌟 滑動軸向動態解鎖：如果你滑回了中心點附近 (X, Y 差異都小於 35)
-    // 就把 swipeAxis 清空，讓你能夠重新決定要往哪個方向滑，實現無縫十字切換
+    // 🌟 滑動軸向動態解鎖
     if (Math.abs(diffX) < 35 && Math.abs(diffY) < 35) {
         swipeAxis = null;
     } else if (!swipeAxis && (Math.abs(diffX) > 35 || Math.abs(diffY) > 35)) {
@@ -491,7 +491,6 @@ function setupInteraction() {
         if (diffX > 0) {
           targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1);
           targetParam = -1; 
-          // 🌟 無縫解除左邊的鎖定狀態
           if (targetParam3 === -1) {
               isParam3Locked = false;
           }
@@ -499,14 +498,13 @@ function setupInteraction() {
           const moveLeft = Math.abs(diffX);
           targetParam = moveLeft < 40 ? -1 : (moveLeft < 100 ? 0 : 1);
           targetParam3 = -1;
-          // 🌟 無縫解除右邊的鎖定狀態
           if (targetParam === -1) {
               isParamLocked = false;
           }
         }
       }
     } else if (swipeAxis === 'y') {
-      // 🌟 嚴格十字鎖定：只有在沒有「鎖定中」且沒有「正在觸發中」的左右參數時，才能上下滑
+      // 🌟 嚴格十字鎖定
       if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
         if (diffY > 0) {
           if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
