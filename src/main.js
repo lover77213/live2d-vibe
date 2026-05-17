@@ -33,6 +33,7 @@ let param5HoldStartTime = 0;
 let isHoldingForParam8 = false; 
 let lockHistory = [];          
 let lastTapTime = 0;
+let pointerDownStartTime = 0; // 🌟 新增：用於記錄按下螢幕的時間
 
 let userScaleOffset = 0.5; 
 let zoomDirection = 0; // 縮放方向狀態：1 (放大), -1 (縮小), 0 (停止)
@@ -229,6 +230,7 @@ function createInvisibleHitbox() {
 
     if (isParam7Locked) {
       isOnModel = true;
+      pointerDownStartTime = Date.now(); // 🌟 確保圖層點擊也記錄時間
       startX = e.clientX;
       startY = e.clientY;
       swipeAxis = null;
@@ -245,9 +247,6 @@ function createInvisibleHitbox() {
  * 🔍 建立 200% 局部特寫畫中畫 (PiP)
  */
 function setupPiP() {
-  // 🌟 解決手機黑屏問題：
-  // 之前強制將 resolution 拉到 8，這會導致手機上的紋理尺寸超過 WebGL 硬體上限 (通常是 4096x4096)，引發黑屏。
-  // 現在改為智慧判斷：手機最高限制在 3 (已達肉眼極限)，電腦最高限制在 4。
   const isMobile = window.innerWidth < window.innerHeight;
   const dpr = window.devicePixelRatio || 1;
   const superRes = isMobile ? Math.min(dpr * 1.5, 3) : Math.min(dpr * 2, 4);
@@ -302,7 +301,7 @@ function updatePiPLayout() {
   pipBorder.lineStyle(6, 0xffb3c6, 0.9);
   pipBorder.drawRoundedRect(0, 0, size, size, 20);
   
-  const fixedAbsoluteZoom = 1.5; 
+  const fixedAbsoluteZoom = 1.7; 
   const currentModelScale = model.scale.y; 
   const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
   
@@ -339,12 +338,12 @@ function updateParams() {
   if (pipContainer) {
     let pipTargetAlpha = 0.0;
     
-    // 🌟 長按任意處即顯示特寫：只要 isOnModel 為 true，就把目標透明度設為 1
-    if (isOnModel) {
+    // 🌟 長按 1.5 秒才顯示特寫
+    if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1500)) {
       pipTargetAlpha = 1.0;
     } 
 
-    // 🌟 優化漸隱速度：顯示時很快 (0.15)，消失時適中偏慢 (0.05)，大約 1 秒內乾淨消失
+    // 優化漸隱速度：顯示時很快 (0.15)，消失時適中偏慢 (0.05)，大約 1 秒內乾淨消失
     const alphaLerpSpeed = (pipTargetAlpha > currentPipAlpha) ? 0.15 : 0.05;
     currentPipAlpha = lerp(currentPipAlpha, pipTargetAlpha, alphaLerpSpeed); 
     
@@ -464,6 +463,7 @@ function setupInteraction() {
 
   model.on('pointerdown', (e) => {
     isOnModel = true;
+    pointerDownStartTime = Date.now(); // 🌟 記錄開始按下的時間
     startX = e.data.originalEvent.clientX || e.data.global.x; 
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
@@ -517,6 +517,7 @@ function setupInteraction() {
   window.addEventListener('pointerup', () => { 
     if (!isOnModel) return;
     isOnModel = false; 
+    pointerDownStartTime = 0; // 🌟 鬆開手時重置計時
     swipeAxis = null;
     isHoldingForParam8 = false;
 
