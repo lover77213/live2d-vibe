@@ -33,7 +33,7 @@ let param5HoldStartTime = 0;
 let isHoldingForParam8 = false; 
 let lockHistory = [];          
 let lastTapTime = 0;
-let pointerDownStartTime = 0; // 🌟 新增：用於記錄按下螢幕的時間
+let pointerDownStartTime = 0; // 用於記錄按下螢幕的時間
 
 let userScaleOffset = 0.5; 
 let zoomDirection = 0; // 縮放方向狀態：1 (放大), -1 (縮小), 0 (停止)
@@ -44,6 +44,7 @@ let pipSprite;
 let pipRenderTexture;
 let pipMask;
 let pipBorder;
+let pipLabelText; // 🌟 新增：文字標籤
 let currentPipAlpha = 0;
 
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -230,7 +231,7 @@ function createInvisibleHitbox() {
 
     if (isParam7Locked) {
       isOnModel = true;
-      pointerDownStartTime = Date.now(); // 🌟 確保圖層點擊也記錄時間
+      pointerDownStartTime = Date.now(); 
       startX = e.clientX;
       startY = e.clientY;
       swipeAxis = null;
@@ -266,10 +267,30 @@ function setupPiP() {
   pipMask = new PIXI.Graphics();
   pipBorder = new PIXI.Graphics();
   
+  // 🌟 建立「小穴特寫」文字標籤
+  const textStyle = new PIXI.TextStyle({
+      fontFamily: 'sans-serif',
+      fontSize: isMobile ? 18 : 24,
+      fontWeight: 'bold',
+      fill: ['#ffffff'], // 白色字體
+      stroke: '#ffb3c6', // 粉色描邊
+      strokeThickness: 4,
+      dropShadow: true,
+      dropShadowColor: '#000000',
+      dropShadowBlur: 4,
+      dropShadowAngle: Math.PI / 4,
+      dropShadowDistance: 2,
+  });
+  pipLabelText = new PIXI.Text('小穴特寫', textStyle);
+  
+  // 將元素加入容器
   pipContainer.addChild(pipSprite);
   pipContainer.addChild(pipMask);
   pipContainer.addChild(pipBorder);
-  pipContainer.mask = pipMask;
+  pipContainer.addChild(pipLabelText); // 文字要放在遮罩和邊框之上
+  
+  // 設定遮罩，但只遮蓋 Sprite，確保文字和邊框完整顯示
+  pipSprite.mask = pipMask;
   
   app.stage.addChild(pipContainer);
   updatePiPLayout();
@@ -285,23 +306,34 @@ function updatePiPLayout() {
   
   const isMobile = window.innerWidth < window.innerHeight;
   const baseSize = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 420);
-  const size = baseSize * 1.5; 
+  
+  // 🌟 將特寫框框稍微縮小一點 (1.5 -> 1.35)
+  const size = baseSize * 1.35; 
   
   const padding = 25;
   
   pipContainer.x = window.innerWidth - size - padding;
   pipContainer.y = window.innerHeight * 0.3; 
   
+  // 更新遮罩
   pipMask.clear();
   pipMask.beginFill(0xffffff);
   pipMask.drawRoundedRect(0, 0, size, size, 20);
   pipMask.endFill();
   
+  // 更新邊框
   pipBorder.clear();
   pipBorder.lineStyle(6, 0xffb3c6, 0.9);
   pipBorder.drawRoundedRect(0, 0, size, size, 20);
   
-  const fixedAbsoluteZoom = 1.7; 
+  // 🌟 更新文字位置 (固定在左上角)
+  if (pipLabelText) {
+      pipLabelText.x = 10;
+      pipLabelText.y = -pipLabelText.height / 2; // 讓文字跨在邊框上
+  }
+  
+  // 🌟 將內部模型的絕對放大倍率稍微調小 (1.7 -> 1.55)
+  const fixedAbsoluteZoom = 1.55; 
   const currentModelScale = model.scale.y; 
   const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
   
@@ -343,7 +375,6 @@ function updateParams() {
       pipTargetAlpha = 1.0;
     } 
 
-    // 優化漸隱速度：顯示時很快 (0.15)，消失時適中偏慢 (0.05)，大約 1 秒內乾淨消失
     const alphaLerpSpeed = (pipTargetAlpha > currentPipAlpha) ? 0.15 : 0.05;
     currentPipAlpha = lerp(currentPipAlpha, pipTargetAlpha, alphaLerpSpeed); 
     
@@ -463,7 +494,7 @@ function setupInteraction() {
 
   model.on('pointerdown', (e) => {
     isOnModel = true;
-    pointerDownStartTime = Date.now(); // 🌟 記錄開始按下的時間
+    pointerDownStartTime = Date.now(); 
     startX = e.data.originalEvent.clientX || e.data.global.x; 
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
@@ -517,7 +548,7 @@ function setupInteraction() {
   window.addEventListener('pointerup', () => { 
     if (!isOnModel) return;
     isOnModel = false; 
-    pointerDownStartTime = 0; // 🌟 鬆開手時重置計時
+    pointerDownStartTime = 0; 
     swipeAxis = null;
     isHoldingForParam8 = false;
 
