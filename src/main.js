@@ -16,7 +16,6 @@ app.view.style.left = "0";
 app.view.style.zIndex = "1";
 document.body.appendChild(app.view);
 
-// 從全域變數抓取 Live2D 模組
 const Live2DModel = PIXI.live2d.Live2DModel;
 Live2DModel.registerTicker(PIXI.Ticker);
 
@@ -34,14 +33,13 @@ let targetParam3 = -1, currentParam3 = -1;
 let targetParam = -1, currentParam = -1;      
 let targetParam6 = 0, currentParam6 = 0;      
 let currentParam8 = 0;                        
-let param8Progress = 0; // 🌟 專門用來計算 S 曲線的進度值 (0.0 ~ 1.0)
+let param8Progress = 0; // 用於平滑的內部進度 (0.0 ~ 1.0)
 let blinkTarget = 1, blinkCurrent = 1;        
+let breathTimer = 0;    // 🌟 原生渲染同步呼吸計時器
 
 // 🔒 鎖定、記憶體與計時狀態
-let isParam2Locked = false;
-let isParam7Locked = false;
-let isParam3Locked = false; 
-let isParamLocked = false;  
+let isParam2Locked = false, isParam7Locked = false;
+let isParam3Locked = false, isParamLocked = false;  
 let isParam6Triggered = false; 
 let param5HoldStartTime = 0;   
 let isHoldingForParam8 = false; 
@@ -54,7 +52,7 @@ let zoomLock = false;
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /**
- * 📏 自動縮放與畫質維持 (🌟 修復直式螢幕裁切問題)
+ * 📏 自動縮放與畫質維持 (修復直式螢幕裁切)
  */
 function resize() {
   if (!model) return;
@@ -62,12 +60,11 @@ function resize() {
   try {
     let baseScale;
 
-    // 判斷是直式(手機)還是橫式(電腦)
     if (window.innerWidth < window.innerHeight) {
-      // 📱 手機端 (直式)：以「螢幕寬度」為基準，避免左右被裁切
+      // 📱 手機端 (直式)：以寬度為基準，避免裁切
       baseScale = window.innerWidth * 0.00085; 
     } else {
-      // 💻 電腦端 (橫式)：以「螢幕高度」為基準
+      // 💻 電腦端 (橫式)：以高度為基準
       baseScale = window.innerHeight * 0.0004;
     }
 
@@ -86,14 +83,9 @@ function resize() {
         tex.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
         tex.baseTexture.anisotropicLevel = 16;
     });
-  } catch (err) {
-    console.error("Resize 計算失敗:", err);
-  }
+  } catch (err) { console.error("Resize 計算失敗:", err); }
 }
 
-/**
- * 🎨 建立縮放按鈕
- */
 function createZoomButtons() {
   const existing = document.getElementById('zoom-container');
   if (existing) existing.remove();
@@ -123,10 +115,8 @@ function createZoomButtons() {
   const handleZoom = (amount) => {
     if (zoomLock) return;
     zoomLock = true;
-    
     userScaleOffset = parseFloat((userScaleOffset + amount).toFixed(2));
     userScaleOffset = Math.max(0.1, Math.min(userScaleOffset, 5.0));
-    
     resize();
     setTimeout(() => { zoomLock = false; }, 400);
   };
@@ -146,39 +136,36 @@ function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
-  // 🌟 彩蛋：Param5 長按 3 秒
+  // 🌟 彩蛋邏輯
   if (targetParam5 === 1 && !isParam6Triggered) {
-    if (param5HoldStartTime === 0) {
-      param5HoldStartTime = Date.now(); 
-    } else if (Date.now() - param5HoldStartTime >= 3000) {
+    if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
+    else if (Date.now() - param5HoldStartTime >= 3000) {
       isParam6Triggered = true;
       targetParam6 = 2; 
-      console.log("💥 彩蛋觸發！Param6 已改變為 2！");
     }
   } else if (targetParam5 !== 1) {
     param5HoldStartTime = 0; 
   }
 
-  // 🌟 Param8 絲滑水球動畫 (SmoothStep S曲線)
-  let targetProgress = (isHoldingForParam8 && isParam7Locked) ? 1.0 : 0.0;
+  // 🌟 Param8 雙重平滑疊化水球擠壓 (徹底消除鈍感)
+  const targetProgress = (isHoldingForParam8 && isParam7Locked) ? 1.0 : 0.0;
   
-  // 先用 lerp 平滑進度 (控制整體的快慢：0.08 是速度，數值越大越快)
-  param8Progress = lerp(param8Progress, targetProgress, 0.08);
+  // 第一重：進度平滑追蹤 (控制整體速度，0.1讓它有剛好的物理慣性)
+  param8Progress = lerp(param8Progress, targetProgress, 0.1);
   
-  // 套用 SmoothStep 演算法 (3t^2 - 2t^3)：讓頭尾柔順、中段加速
+  // 第二重：SmoothStep S曲線 (讓頭尾柔順，中段加速)
   const easeT = param8Progress * param8Progress * (3.0 - 2.0 * param8Progress);
-  currentParam8 = easeT * 3.0; // 映射到 0 ~ 3 的區間
-  
+  currentParam8 = easeT * 3.0; 
   core.setParameterValueById("Param8", currentParam8);
 
-  // 🌟 有機呼吸引擎 (消除機械斷層感)
-  // 取得高精度時間 (秒)
-  const timeSec = performance.now() / 1000.0;
-  // 疊加兩個不同頻率的波：主呼吸 + 微微起伏，創造不規則的生命感
-  const breathValue = (Math.sin(timeSec * 1.5) + Math.sin(timeSec * 0.7) * 0.4 + 1.4) / 2.8; 
+  // 🌟 原生渲染同步呼吸 (解決所有卡頓與機械感)
+  // 使用 ticker.elapsedMS 確保呼吸永遠跟著畫面影格走，永不掉幀
+  breathTimer += app.ticker.elapsedMS / 1000.0;
+  // 柔和的雙波疊加
+  const breathValue = (Math.sin(breathTimer * 1.5) + Math.sin(breathTimer * 0.7) * 0.4 + 1.4) / 2.8; 
   core.setParameterValueById("ParamBreath", breathValue);
 
-  // 🌟 強制左右互斥 (確保 1 不會同時出現)
+  // 🌟 強制左右互斥
   if (targetParam3 === 1) targetParam = -1;
   if (targetParam === 1) targetParam3 = -1;
 
@@ -218,7 +205,7 @@ function startBlinkLoop() {
 }
 
 /**
- * 👆 設定互動邏輯 (十字滑動、互斥鎖定)
+ * 👆 設定互動邏輯
  */
 function setupInteraction() {
   app.view.style.touchAction = "none";
@@ -247,9 +234,7 @@ function setupInteraction() {
     swipeAxis = null; 
 
     // 🌟 按壓蓄力
-    if (isParam7Locked) {
-      isHoldingForParam8 = true;
-    }
+    if (isParam7Locked) isHoldingForParam8 = true;
   });
   
   window.addEventListener('pointermove', (e) => {
@@ -257,7 +242,7 @@ function setupInteraction() {
     const diffX = e.clientX - startX; 
     const diffY = startY - e.clientY; 
     
-    // 🌟 防手抖容錯 (35px)
+    // 防手抖容錯 (35px)
     if (!swipeAxis && (Math.abs(diffX) > 35 || Math.abs(diffY) > 35)) {
       swipeAxis = Math.abs(diffX) > Math.abs(diffY) ? 'x' : 'y';
       isHoldingForParam8 = false; 
@@ -297,7 +282,6 @@ function setupInteraction() {
     if (!isOnModel) return;
     isOnModel = false; 
     swipeAxis = null;
-
     isHoldingForParam8 = false;
 
     if (targetClothes === 1 && !isParam2Locked) { isParam2Locked = true; lockHistory.push('Param2'); }
@@ -339,9 +323,7 @@ async function start() {
     
     resize();
     window.addEventListener("resize", resize);
-  } catch (err) {
-    console.error("啟動失敗:", err);
-  }
+  } catch (err) { console.error("啟動失敗:", err); }
 }
 
 window.addEventListener('DOMContentLoaded', start);
