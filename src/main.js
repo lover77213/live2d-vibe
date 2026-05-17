@@ -263,4 +263,490 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
     position: absolute;
     left: ${x}px;
     top: ${y}px;
-    color: ${color};
+    color: ${color}; 
+    font-size: ${fontSize};
+    font-weight: bold;
+    font-family: sans-serif;
+    text-shadow: 2px 2px 6px rgba(0,0,0,0.8);
+    transform: translate(-50%, -50%); 
+    opacity: 0;
+    white-space: nowrap; 
+  `;
+
+  container.appendChild(textEl);
+
+  const animation = textEl.animate([
+    { transform: 'translate(-50%, -50%)', opacity: 0 },
+    { transform: 'translate(-50%, -70%)', opacity: 1, offset: 0.1 },  
+    { transform: 'translate(-50%, -100%)', opacity: 1, offset: 0.8 }, 
+    { transform: 'translate(-50%, -120%)', opacity: 0 }               
+  ], {
+    duration: duration, 
+    easing: 'ease-out',
+    fill: 'forwards'
+  });
+
+  animation.onfinish = () => {
+    textEl.remove();
+  };
+}
+
+/**
+ * 🎯 建立 Param8 專用的隱形物理判定圖層
+ */
+function createInvisibleHitbox() {
+  if (document.getElementById('param8-invisible-hitbox')) return;
+  
+  const hitbox = document.createElement('div');
+  hitbox.id = 'param8-invisible-hitbox';
+  
+  hitbox.style.cssText = `
+    position: fixed;
+    left: 50%;
+    top: 38%; 
+    width: 60vw;
+    height: 35vh;
+    max-width: 400px;
+    max-height: 400px;
+    transform: translate(-50%, -50%);
+    z-index: 5000; 
+    display: none; 
+    touch-action: none;
+  `;
+
+  hitbox.addEventListener('pointerdown', (e) => {
+    const currentTime = Date.now();
+    if (currentTime - lastTapTime < 300) {
+      if (lockHistory.length > 0) {
+        const lastLocked = lockHistory.pop(); 
+        if (lastLocked === 'Param2') { isParam2Locked = false; targetClothes = -1; targetParam5 = -1; }
+        else if (lastLocked === 'Param7') { isParam7Locked = false; targetParam7 = -1; }
+        else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
+        else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
+      }
+    }
+    lastTapTime = currentTime;
+
+    if (isParam7Locked) {
+      isOnModel = true;
+      pointerDownStartTime = Date.now(); 
+      startX = e.clientX;
+      startY = e.clientY;
+      swipeAxis = null;
+      
+      isHoldingForParam8 = true;
+      spawnFloatingText(e.clientX + 30, e.clientY - 60, "嗯...❤️", "#ffb3c6", 1500, "28px");
+    }
+  });
+
+  document.body.appendChild(hitbox);
+}
+
+/**
+ * 🔍 建立 200% 局部特寫畫中畫 (PiP)
+ */
+function setupPiP() {
+  const isMobile = window.innerWidth < window.innerHeight;
+  const dpr = window.devicePixelRatio || 1;
+  const superRes = isMobile ? Math.min(dpr * 1.5, 3) : Math.min(dpr * 2, 4);
+
+  pipRenderTexture = PIXI.RenderTexture.create({
+    width: window.innerWidth,
+    height: window.innerHeight,
+    resolution: superRes,
+    scaleMode: PIXI.SCALE_MODES.LINEAR 
+  });
+  
+  pipSprite = new PIXI.Sprite(pipRenderTexture);
+  
+  pipContainer = new PIXI.Container();
+  pipContainer.alpha = 0; 
+  
+  pipMask = new PIXI.Graphics();
+  pipBorder = new PIXI.Graphics();
+  
+  // 🌟 建立「小穴特寫」文字標籤
+  const textStyle = new PIXI.TextStyle({
+      fontFamily: 'sans-serif',
+      fontSize: isMobile ? 18 : 24,
+      fontWeight: 'bold',
+      fill: ['#ffffff'], // 白色字體
+      stroke: '#ffb3c6', // 粉色描邊
+      strokeThickness: 4,
+      dropShadow: true,
+      dropShadowColor: '#000000',
+      dropShadowBlur: 4,
+      dropShadowAngle: Math.PI / 4,
+      dropShadowDistance: 2,
+  });
+  pipLabelText = new PIXI.Text('小穴特寫', textStyle);
+  
+  // 將元素加入容器
+  pipContainer.addChild(pipSprite);
+  pipContainer.addChild(pipMask);
+  pipContainer.addChild(pipBorder);
+  pipContainer.addChild(pipLabelText); 
+  
+  pipSprite.mask = pipMask;
+  
+  app.stage.addChild(pipContainer);
+  updatePiPLayout();
+}
+
+/**
+ * 🔍 🌟 動態更新局部特寫的大小與對焦位置
+ */
+function updatePiPLayout() {
+  if (!pipContainer || !pipRenderTexture || !model) return;
+  
+  pipRenderTexture.resize(window.innerWidth, window.innerHeight);
+  
+  const isMobile = window.innerWidth < window.innerHeight;
+  const baseSize = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 420);
+  
+  const size = baseSize * 1.35; 
+  const padding = 25;
+  
+  pipContainer.x = window.innerWidth - size - padding;
+  pipContainer.y = window.innerHeight * 0.3; 
+  
+  pipMask.clear();
+  pipMask.beginFill(0xffffff);
+  pipMask.drawRoundedRect(0, 0, size, size, 20);
+  pipMask.endFill();
+  
+  pipBorder.clear();
+  pipBorder.lineStyle(6, 0xffb3c6, 0.9);
+  pipBorder.drawRoundedRect(0, 0, size, size, 20);
+  
+  if (pipLabelText) {
+      pipLabelText.x = 10;
+      pipLabelText.y = -pipLabelText.height / 2; 
+  }
+  
+  const fixedAbsoluteZoom = 1.55; 
+  const currentModelScale = model.scale.y; 
+  const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
+  
+  const baseZoomLevel = 2.0;
+  const finalZoomLevel = baseZoomLevel * effectiveZoom;
+  pipSprite.scale.set(finalZoomLevel);
+  
+  const focusYOffset = 580; 
+  const yOffset = focusYOffset * currentModelScale; 
+  
+  const focusX = model.x;
+  const focusY = model.y + yOffset;
+  
+  pipSprite.x = size / 2 - focusX * finalZoomLevel;
+  pipSprite.y = size / 2 - focusY * finalZoomLevel;
+}
+
+/**
+ * ⚙️ 更新所有 Live2D 參數
+ */
+function updateParams() {
+  if (zoomDirection !== 0) {
+    userScaleOffset += zoomDirection * 0.015;
+    userScaleOffset = Math.max(0.1, Math.min(userScaleOffset, 5.0));
+    resize(); 
+  }
+
+  const hitbox = document.getElementById('param8-invisible-hitbox');
+  if (hitbox) {
+    hitbox.style.display = isParam7Locked ? 'block' : 'none';
+  }
+
+  // 🌟 全網計數器邏輯觸發點
+  // 只要目標參數大於0(代表衣服被撥開)，且這次拉開還沒算過分數
+  if (targetParam5 > 0 && !hasCountedThisSwipe) {
+    hasCountedThisSwipe = true; // 鎖定，避免狂刷
+    incrementGlobalCount(); // 發送 +1 到雲端
+  }
+
+  // 🔍 更新局部特寫畫中畫的漸顯漸隱與渲染
+  if (pipContainer) {
+    let pipTargetAlpha = 0.0;
+    
+    if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1500)) {
+      pipTargetAlpha = 1.0;
+    } 
+
+    const alphaLerpSpeed = (pipTargetAlpha > currentPipAlpha) ? 0.15 : 0.05;
+    currentPipAlpha = lerp(currentPipAlpha, pipTargetAlpha, alphaLerpSpeed); 
+    
+    pipContainer.alpha = currentPipAlpha;
+    
+    if (currentPipAlpha > 0.01) {
+      pipContainer.visible = false; 
+      try {
+        app.renderer.render(app.stage, { renderTexture: pipRenderTexture, clear: true });
+      } catch (e) {
+        app.renderer.render(app.stage, pipRenderTexture, true);
+      }
+      pipContainer.visible = true; 
+    }
+  }
+
+  if (!model?.internalModel?.coreModel) return;
+  const core = model.internalModel.coreModel;
+  
+  if (targetParam5 === 1 && !isParam6Triggered) {
+    if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
+    else if (Date.now() - param5HoldStartTime >= 3000) {
+      isParam6Triggered = true;
+      targetParam6 = 2; 
+      
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight * 0.65; 
+      spawnFloatingText(centerX, centerY, "處女膜破了...💔", "#ff4d4d", 3000, "48px");
+    }
+  } else if (targetParam5 !== 1) {
+    param5HoldStartTime = 0; 
+  }
+
+  let p8Target = 0.0;
+  
+  if ((isHoldingForParam8 && isParam7Locked) || targetParam5 > 0) {
+    if (isHoldingForParam8 && isParam7Locked) p8Target = 3.0; 
+    targetEyeY = -1.0;      
+    targetMouthForm = -1.0; 
+  } else {
+    p8Target = 0.0;
+    targetEyeY = 0.0;       
+    targetMouthForm = 0.0;  
+  }
+
+  currentParam8 = lerp(currentParam8, p8Target, 0.4);
+  core.setParameterValueById("Param8", currentParam8);
+
+  currentEyeY = lerp(currentEyeY, targetEyeY, 0.3);
+  core.setParameterValueById("ParamEyeBallY", currentEyeY);
+
+  currentMouthForm = lerp(currentMouthForm, targetMouthForm, 0.3);
+  core.setParameterValueById("ParamMouthForm", currentMouthForm);
+
+  const breathValue = (Math.sin(Date.now() / 400.0) * 0.5) + 0.5;
+  core.setParameterValueById("ParamBreath", breathValue);
+
+  if (targetParam3 === 1) targetParam = -1;
+  if (targetParam === 1) targetParam3 = -1;
+
+  currentClothes = lerp(currentClothes, targetClothes, 0.15);
+  core.setParameterValueById("Param2", currentClothes);
+
+  currentParam5 = lerp(currentParam5, targetParam5, 0.45);
+  core.setParameterValueById("Param5", currentParam5);
+  
+  currentParam7 = lerp(currentParam7, targetParam7, 0.45);
+  core.setParameterValueById("Param7", currentParam7);
+
+  currentParam3 = lerp(currentParam3, targetParam3, 0.45);
+  core.setParameterValueById("Param3", currentParam3);
+
+  currentParam = lerp(currentParam, targetParam, 0.45);
+  core.setParameterValueById("Param", currentParam);
+  
+  currentParam6 = lerp(currentParam6, targetParam6, 0.05);
+  core.setParameterValueById("Param6", currentParam6);
+
+  blinkCurrent = lerp(blinkCurrent, blinkTarget, 0.25);
+  core.setParameterValueById("ParamEyeLOpen", blinkCurrent);
+  core.setParameterValueById("ParamEyeROpen", blinkCurrent);
+}
+
+function startBlinkLoop() {
+  const loop = () => {
+    setTimeout(() => {
+      blinkTarget = 0;
+      setTimeout(() => { blinkTarget = 1; }, 120);
+      loop();
+    }, 2000 + Math.random() * 4000);
+  };
+  loop();
+}
+
+/**
+ * 👆 設定互動邏輯
+ */
+function setupInteraction() {
+  app.view.style.touchAction = "none";
+
+  app.view.addEventListener('pointerdown', (e) => {
+    const currentTime = Date.now();
+    if (currentTime - lastTapTime < 300) {
+      if (lockHistory.length > 0) {
+        const lastLocked = lockHistory.pop(); 
+        if (lastLocked === 'Param2') { isParam2Locked = false; targetClothes = -1; targetParam5 = -1; }
+        else if (lastLocked === 'Param7') { isParam7Locked = false; targetParam7 = -1; }
+        else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
+        else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
+      }
+    }
+    lastTapTime = currentTime;
+  });
+
+  model.interactive = true; 
+  model.buttonMode = true; 
+
+  model.on('pointerdown', (e) => {
+    isOnModel = true;
+    pointerDownStartTime = Date.now(); 
+    startX = e.data.originalEvent.clientX || e.data.global.x; 
+    startY = e.data.originalEvent.clientY || e.data.global.y; 
+    swipeAxis = null; 
+  });
+  
+  window.addEventListener('pointermove', (e) => {
+    if (!isOnModel) return;
+    const diffX = e.clientX - startX; 
+    const diffY = startY - e.clientY; 
+    
+    if (Math.abs(diffX) < 35 && Math.abs(diffY) < 35) {
+        swipeAxis = null;
+    } else if (!swipeAxis && (Math.abs(diffX) > 35 || Math.abs(diffY) > 35)) {
+      swipeAxis = Math.abs(diffX) > Math.abs(diffY) ? 'x' : 'y';
+      isHoldingForParam8 = false; 
+    }
+    
+    if (swipeAxis === 'x') {
+      if (targetClothes === -1 && !isParam2Locked) { 
+        if (diffX > 0) {
+          targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1);
+          targetParam = -1; 
+        } else {
+          const moveLeft = Math.abs(diffX);
+          targetParam = moveLeft < 40 ? -1 : (moveLeft < 100 ? 0 : 1);
+          targetParam3 = -1;
+        }
+
+        if (targetParam3 === -1) isParam3Locked = false;
+        if (targetParam === -1) isParamLocked = false;
+      }
+    } else if (swipeAxis === 'y') {
+      if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
+        if (diffY > 0) {
+          if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+          else targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+        } else {
+          if (!isParam7Locked) {
+            const down = Math.abs(diffY);
+            if (down < 30) targetParam7 = -1;
+            else if (down < 80) targetParam7 = 0.8;
+            else if (down < 140) targetParam7 = 1.6;
+            else if (down < 200) targetParam7 = 2.4;
+            else targetParam7 = 2.8;
+          }
+        }
+      }
+    }
+  });
+  
+  window.addEventListener('pointerup', () => { 
+    if (!isOnModel) return;
+    isOnModel = false; 
+    pointerDownStartTime = 0; 
+    swipeAxis = null;
+    isHoldingForParam8 = false;
+
+    if (targetClothes === 1 && !isParam2Locked) { isParam2Locked = true; lockHistory.push('Param2'); }
+    if (targetParam7 === 2.8 && !isParam7Locked) { isParam7Locked = true; lockHistory.push('Param7'); }
+    if (targetParam3 === 1 && !isParam3Locked) { isParam3Locked = true; lockHistory.push('Param3'); }
+    if (targetParam === 1 && !isParamLocked) { isParamLocked = true; lockHistory.push('Param'); }
+
+    targetParam5 = -1;
+    
+    // 🌟 當使用者鬆開手，重置計數鎖定，下一次拉開才能再次 +1
+    hasCountedThisSwipe = false; 
+
+    if (!isParam3Locked) targetParam3 = -1;
+    if (!isParamLocked) targetParam = -1; 
+  });
+}
+
+/**
+ * 🚀 主啟動函數
+ */
+async function start() {
+  try {
+    document.documentElement.style.width = '100%';
+    document.documentElement.style.height = '100%';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    document.body.style.margin = '0';
+    document.body.style.overflow = 'hidden'; 
+    document.body.style.backgroundColor = 'transparent';
+
+    const Live2DModel = PIXI.live2d.Live2DModel;
+    Live2DModel.registerTicker(PIXI.Ticker);
+
+    app = new PIXI.Application({
+      resizeTo: window, 
+      backgroundAlpha: 0,
+      antialias: true, 
+      resolution: Math.max(window.devicePixelRatio, 2), 
+      autoDensity: true,
+      powerPreference: 'high-performance',
+    });
+
+    app.view.style.position = "absolute";
+    app.view.style.top = "0";
+    app.view.style.left = "0";
+    app.view.style.width = "100vw";
+    app.view.style.height = "100vh";
+    app.view.style.zIndex = "1";
+    document.body.appendChild(app.view);
+
+    const modelPath = "public/model/model.model3.json";
+    model = await Live2DModel.from(modelPath, { autoUpdate: true });
+
+    const textures = model.textures || model.internalModel?.textures || [];
+    textures.forEach((tex) => {
+      if (tex && tex.baseTexture) {
+        tex.baseTexture.mipmap = (PIXI.MIPMAP_MODES && PIXI.MIPMAP_MODES.ON !== undefined) 
+          ? PIXI.MIPMAP_MODES.ON 
+          : 1; 
+          
+        tex.baseTexture.anisotropicLevel = 16;
+        
+        tex.baseTexture.scaleMode = (PIXI.SCALE_MODES && PIXI.SCALE_MODES.LINEAR !== undefined) 
+          ? PIXI.SCALE_MODES.LINEAR 
+          : 1; 
+      }
+    });
+    
+    userScaleOffset = 0.5;
+    createZoomButtons(); 
+    createEffectContainer(); 
+    createInvisibleHitbox(); 
+
+    // 🌟 啟動時建立全網計數器 UI 並開始同步
+    setupCounter();
+
+    window.model = model;
+    app.stage.addChild(model);
+    model.internalModel.eyeBlink = null;
+
+    setupPiP(); 
+    setupInteraction(); 
+    startBlinkLoop();
+    app.ticker.add(updateParams);
+    
+    requestAnimationFrame(() => {
+        resize();
+        app.render(); 
+        requestAnimationFrame(() => {
+            resize();
+        });
+    });
+    
+    window.addEventListener("resize", () => {
+        resize();
+        createZoomButtons();
+    });
+  } catch (err) { 
+    console.error("啟動失敗:", err); 
+  }
+}
+
+window.addEventListener('DOMContentLoaded', start);
