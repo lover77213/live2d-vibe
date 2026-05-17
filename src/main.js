@@ -44,7 +44,7 @@ let pipRenderTexture;
 let pipMask;
 let pipBorder;
 let currentPipAlpha = 0;
-let pipFadeOutStartTime = 0; // 用於控制消失延遲
+let pipFadeOutStartTime = 0; 
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -73,7 +73,6 @@ function resize() {
     model.x = window.innerWidth / 2;
     model.y = window.innerHeight / 2;
 
-    // 動態更新按鈕大小
     const btnPlus = document.getElementById('btn-zoom-plus');
     const btnMinus = document.getElementById('btn-zoom-minus');
     
@@ -85,7 +84,6 @@ function resize() {
       btnMinus.style.width = btnSize; btnMinus.style.height = btnSize; btnMinus.style.fontSize = fontSize;
     }
 
-    // 🌟 同步更新局部特寫的畫面配置 (確保縮放時特寫位置不跑掉)
     if (typeof updatePiPLayout === 'function') {
       updatePiPLayout();
     }
@@ -124,7 +122,6 @@ function createZoomButtons() {
   btnMinus.innerText = '－'; 
   btnMinus.style.cssText = btnStyle;
 
-  // 長按邏輯
   const setZoom = (dir) => (e) => { e.preventDefault(); zoomDirection = dir; };
   const stopZoom = (e) => { e.preventDefault(); zoomDirection = 0; };
 
@@ -156,7 +153,6 @@ function createEffectContainer() {
   document.body.appendChild(container);
 }
 
-// 支援傳入自訂文字、顏色、停留時間與大小
 function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", duration = 1500, fontSize = "28px") {
   const container = document.getElementById('effect-container');
   if (!container) return;
@@ -164,7 +160,6 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
   const textEl = document.createElement('div');
   textEl.innerText = text;
   
-  // 基礎樣式
   textEl.style.cssText = `
     position: absolute;
     left: ${x}px;
@@ -181,7 +176,6 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
 
   container.appendChild(textEl);
 
-  // 漂浮動畫
   const animation = textEl.animate([
     { transform: 'translate(-50%, -50%)', opacity: 0 },
     { transform: 'translate(-50%, -70%)', opacity: 1, offset: 0.1 },  
@@ -221,9 +215,7 @@ function createInvisibleHitbox() {
     touch-action: none;
   `;
 
-  // 綁定點擊事件
   hitbox.addEventListener('pointerdown', (e) => {
-    // 檢查雙擊復原邏輯
     const currentTime = Date.now();
     if (currentTime - lastTapTime < 300) {
       if (lockHistory.length > 0) {
@@ -236,7 +228,6 @@ function createInvisibleHitbox() {
     }
     lastTapTime = currentTime;
 
-    // 觸發 Param8 邏輯
     if (isParam7Locked) {
       isOnModel = true;
       startX = e.clientX;
@@ -255,17 +246,19 @@ function createInvisibleHitbox() {
  * 🔍 建立 200% 局部特寫畫中畫 (PiP)
  */
 function setupPiP() {
-  // 🌟 超高清設定：將 resolution 強制拉高，確保放大後依然清晰
-  const superRes = Math.max(window.devicePixelRatio * 2, 4);
+  // 🌟 終極高清設定：強制將 resolution 拉高至 8 (或裝置像素比的 4 倍)，確保擷取原始最清晰像素
+  const superRes = Math.max(window.devicePixelRatio * 4, 8);
   pipRenderTexture = PIXI.RenderTexture.create({
     width: window.innerWidth,
     height: window.innerHeight,
-    resolution: superRes
+    resolution: superRes,
+    scaleMode: PIXI.SCALE_MODES.LINEAR // 確保平滑縮放
   });
+  
   pipSprite = new PIXI.Sprite(pipRenderTexture);
   
   pipContainer = new PIXI.Container();
-  pipContainer.alpha = 0; // 初始完全隱藏
+  pipContainer.alpha = 0; 
   
   pipMask = new PIXI.Graphics();
   pipBorder = new PIXI.Graphics();
@@ -275,7 +268,6 @@ function setupPiP() {
   pipContainer.addChild(pipBorder);
   pipContainer.mask = pipMask;
   
-  // 加入主舞台，但層級要在最高
   app.stage.addChild(pipContainer);
   updatePiPLayout();
 }
@@ -306,18 +298,14 @@ function updatePiPLayout() {
   pipBorder.lineStyle(6, 0xffb3c6, 0.9);
   pipBorder.drawRoundedRect(0, 0, size, size, 20);
   
-  // 🌟 絕對固定縮放倍率核心：抵銷模型的全域縮放，讓特寫畫面「永遠保持相同的物理放大比例」
-  // 將 fixedAbsoluteZoom 從 1.0 提升到 1.7 (再大 1.7 倍)
   const fixedAbsoluteZoom = 1.7; 
   const currentModelScale = model.scale.y; 
   const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
   
-  // 🌟 這裡也把 zoomLevel 加倍 (原本是 2.0，現在是 2.0 * effectiveZoom)
   const baseZoomLevel = 2.0;
   const finalZoomLevel = baseZoomLevel * effectiveZoom;
   pipSprite.scale.set(finalZoomLevel);
   
-  // 🌟 動態對焦：精準鎖定陰部
   const focusYOffset = 580; 
   const yOffset = focusYOffset * currentModelScale; 
   
@@ -332,14 +320,12 @@ function updatePiPLayout() {
  * ⚙️ 更新所有 Live2D 參數
  */
 function updateParams() {
-  // 長按縮放連續判定
   if (zoomDirection !== 0) {
     userScaleOffset += zoomDirection * 0.015;
     userScaleOffset = Math.max(0.1, Math.min(userScaleOffset, 5.0));
-    resize(); // 這裡呼叫 resize 也會自動觸發 updatePiPLayout 重新對焦
+    resize(); 
   }
 
-  // 🎯 控制隱形圖層的顯示與隱藏
   const hitbox = document.getElementById('param8-invisible-hitbox');
   if (hitbox) {
     hitbox.style.display = isParam7Locked ? 'block' : 'none';
@@ -348,36 +334,18 @@ function updateParams() {
   // 🔍 更新局部特寫畫中畫的漸顯漸隱與渲染
   if (pipContainer) {
     let pipTargetAlpha = 0.0;
-    const now = Date.now();
-
-    if (targetParam5 > 0) {
-      // 正在觸發 (長按)：目標透明度為 1，並重置消失計時器
-      pipTargetAlpha = 1.0;
-      pipFadeOutStartTime = 0;
-    } else {
-      // 未觸發 (放開手指)
-      if (currentPipAlpha > 0.01) {
-        if (pipFadeOutStartTime === 0) {
-          // 剛放開手，記錄當下時間
-          pipFadeOutStartTime = now;
-          pipTargetAlpha = 1.0; // 延遲期間保持顯示
-        } else if (now - pipFadeOutStartTime < 1000) {
-          // 放開手未滿 1 秒 (1000ms)，保持顯示
-          pipTargetAlpha = 1.0;
-        } else {
-          // 放開手超過 1 秒，目標透明度歸零，開始漸隱
-          pipTargetAlpha = 0.0;
-        }
-      }
-    }
     
-    // 🌟 非對稱漸隱邏輯：出現時很快 (0.15)，消失時超慢 (0.015) 
-    const alphaLerpSpeed = (pipTargetAlpha > currentPipAlpha) ? 0.15 : 0.015;
+    // 🌟 長按任意處即顯示特寫：只要 isOnModel 為 true，就把目標透明度設為 1
+    if (isOnModel) {
+      pipTargetAlpha = 1.0;
+    } 
+
+    // 🌟 優化漸隱速度：顯示時很快 (0.15)，消失時適中偏慢 (0.05)，大約 1 秒內乾淨消失
+    const alphaLerpSpeed = (pipTargetAlpha > currentPipAlpha) ? 0.15 : 0.05;
     currentPipAlpha = lerp(currentPipAlpha, pipTargetAlpha, alphaLerpSpeed); 
     
     pipContainer.alpha = currentPipAlpha;
     
-    // 只有在肉眼可見時才消耗效能去擷取畫面
     if (currentPipAlpha > 0.01) {
       pipContainer.visible = false; 
       try {
@@ -392,7 +360,6 @@ function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
-  // 🌟 彩蛋邏輯 (Param6 觸發文字)
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
     else if (Date.now() - param5HoldStartTime >= 3000) {
@@ -407,39 +374,33 @@ function updateParams() {
     param5HoldStartTime = 0; 
   }
 
-  // 🌟 Param8 與 Param5 的表情連動
   let p8Target = 0.0;
   
   if ((isHoldingForParam8 && isParam7Locked) || targetParam5 > 0) {
-    if (isHoldingForParam8 && isParam7Locked) p8Target = 3.0; // 只有 Param8 觸發水球
-    targetEyeY = -1.0;      // 眼睛向下看
-    targetMouthForm = -1.0; // 嘴巴表情變換
+    if (isHoldingForParam8 && isParam7Locked) p8Target = 3.0; 
+    targetEyeY = -1.0;      
+    targetMouthForm = -1.0; 
   } else {
     p8Target = 0.0;
-    targetEyeY = 0.0;       // 恢復正常眼位
-    targetMouthForm = 0.0;  // 恢復正常嘴型
+    targetEyeY = 0.0;       
+    targetMouthForm = 0.0;  
   }
 
-  // 平滑更新 Param8
   currentParam8 = lerp(currentParam8, p8Target, 0.4);
   core.setParameterValueById("Param8", currentParam8);
 
-  // 平滑更新 眼位與嘴型
   currentEyeY = lerp(currentEyeY, targetEyeY, 0.3);
   core.setParameterValueById("ParamEyeBallY", currentEyeY);
 
   currentMouthForm = lerp(currentMouthForm, targetMouthForm, 0.3);
   core.setParameterValueById("ParamMouthForm", currentMouthForm);
 
-  // 真・完美獨立呼吸
   const breathValue = (Math.sin(Date.now() / 400.0) * 0.5) + 0.5;
   core.setParameterValueById("ParamBreath", breathValue);
 
-  // 強制左右互斥
   if (targetParam3 === 1) targetParam = -1;
   if (targetParam === 1) targetParam3 = -1;
 
-  // 參數平滑更新
   currentClothes = lerp(currentClothes, targetClothes, 0.15);
   core.setParameterValueById("Param2", currentClothes);
 
@@ -480,7 +441,6 @@ function startBlinkLoop() {
 function setupInteraction() {
   app.view.style.touchAction = "none";
 
-  // 背景的雙擊復原邏輯
   app.view.addEventListener('pointerdown', (e) => {
     const currentTime = Date.now();
     if (currentTime - lastTapTime < 300) {
@@ -510,7 +470,6 @@ function setupInteraction() {
     const diffX = e.clientX - startX; 
     const diffY = startY - e.clientY; 
     
-    // 🌟 滑動軸向動態解鎖
     if (Math.abs(diffX) < 35 && Math.abs(diffY) < 35) {
         swipeAxis = null;
     } else if (!swipeAxis && (Math.abs(diffX) > 35 || Math.abs(diffY) > 35)) {
@@ -529,12 +488,10 @@ function setupInteraction() {
           targetParam3 = -1;
         }
 
-        // 🌟 無縫解除左右鎖定：只要參數退回 -1 (回到中間)，就立刻解除該方向的鎖定
         if (targetParam3 === -1) isParam3Locked = false;
         if (targetParam === -1) isParamLocked = false;
       }
     } else if (swipeAxis === 'y') {
-      // 🌟 嚴格十字鎖定
       if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
         if (diffY > 0) {
           if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
@@ -566,7 +523,6 @@ function setupInteraction() {
 
     targetParam5 = -1;
     
-    // 鬆開手時，確保未鎖定的參數自動歸零，讓你可以自由切換滑動軸
     if (!isParam3Locked) targetParam3 = -1;
     if (!isParamLocked) targetParam = -1; 
   });
@@ -577,7 +533,6 @@ function setupInteraction() {
  */
 async function start() {
   try {
-    // 核心防白畫面
     document.documentElement.style.width = '100%';
     document.documentElement.style.height = '100%';
     document.body.style.width = '100%';
@@ -609,7 +564,6 @@ async function start() {
     const modelPath = "public/model/model.model3.json";
     model = await Live2DModel.from(modelPath, { autoUpdate: true });
 
-    // 安全讀取 PIXI 常數
     const textures = model.textures || model.internalModel?.textures || [];
     textures.forEach((tex) => {
       if (tex && tex.baseTexture) {
@@ -628,13 +582,13 @@ async function start() {
     userScaleOffset = 0.5;
     createZoomButtons(); 
     createEffectContainer(); 
-    createInvisibleHitbox(); // 🎯 建立隱形判定圖層
+    createInvisibleHitbox(); 
 
     window.model = model;
     app.stage.addChild(model);
     model.internalModel.eyeBlink = null;
 
-    setupPiP(); // 🔍 建立特寫畫中畫
+    setupPiP(); 
     setupInteraction(); 
     startBlinkLoop();
     app.ticker.add(updateParams);
