@@ -377,7 +377,11 @@ function setupInteraction() {
     const diffX = e.clientX - startX; 
     const diffY = startY - e.clientY; 
     
-    if (!swipeAxis && (Math.abs(diffX) > 35 || Math.abs(diffY) > 35)) {
+    // 🌟 滑動軸向動態解鎖：如果你滑回了中心點附近 (X, Y 差異都小於 35)
+    // 就把 swipeAxis 清空，讓你能夠重新決定要往哪個方向滑，實現無縫十字切換
+    if (Math.abs(diffX) < 35 && Math.abs(diffY) < 35) {
+        swipeAxis = null;
+    } else if (!swipeAxis && (Math.abs(diffX) > 35 || Math.abs(diffY) > 35)) {
       swipeAxis = Math.abs(diffX) > Math.abs(diffY) ? 'x' : 'y';
       isHoldingForParam8 = false; 
     }
@@ -385,17 +389,26 @@ function setupInteraction() {
     if (swipeAxis === 'x') {
       if (targetClothes === -1 && !isParam2Locked) { 
         if (diffX > 0) {
-          if (!isParam3Locked) targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1);
+          targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1);
           targetParam = -1; 
+          // 🌟 無縫解除左邊的鎖定狀態
+          if (targetParam3 === -1) {
+              isParam3Locked = false;
+              // 如果它之前被記錄在 lockHistory，可以選擇性地清理，但這裡先單純解除布林值即可
+          }
         } else {
           const moveLeft = Math.abs(diffX);
-          if (!isParamLocked) targetParam = moveLeft < 40 ? -1 : (moveLeft < 100 ? 0 : 1);
+          targetParam = moveLeft < 40 ? -1 : (moveLeft < 100 ? 0 : 1);
           targetParam3 = -1;
+          // 🌟 無縫解除右邊的鎖定狀態
+          if (targetParam === -1) {
+              isParamLocked = false;
+          }
         }
       }
     } else if (swipeAxis === 'y') {
-      // 🌟 核心修正：必須回到中間（沒有鎖定左右）才可以上下滑動！
-      if (!isParam3Locked && !isParamLocked) {
+      // 🌟 嚴格十字鎖定：只有在沒有「鎖定中」且沒有「正在觸發中」的左右參數時，才能上下滑
+      if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
         if (diffY > 0) {
           if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
           else targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
