@@ -1,3 +1,6 @@
+/**
+ * 🚀 PIXI 應用程式初始化 (強化畫質設定)
+ */
 const app = new PIXI.Application({
   resizeTo: window,
   backgroundAlpha: 0,
@@ -18,10 +21,10 @@ const Live2DModel = PIXI.live2d.Live2DModel;
 Live2DModel.registerTicker(PIXI.Ticker);
 
 let model;
-let startX = 0; // 🌟 X 軸起始位置 (用於左右滑動)
+let startX = 0; // X 軸起始位置 (用於左右滑動)
 let startY = 0; // Y 軸起始位置 (用於上下滑動)
 let isOnModel = false;
-let swipeAxis = null; // 🌟 滑動軸向鎖定 (防止斜滑同時觸發)
+let swipeAxis = null; // 滑動軸向鎖定 (防止斜滑同時觸發)
 
 // 🌟 參數狀態管理
 let targetClothes = -1, currentClothes = -1;  // Param2 (上下)
@@ -30,8 +33,9 @@ let targetParam5 = -1, currentParam5 = -1;    // Param5 (向上接管)
 let targetParam3 = -1, currentParam3 = -1;    // Param3 (右滑)
 let targetParam = -1, currentParam = -1;      // Param (左滑)
 let targetParam6 = 0, currentParam6 = 0;      // Param6 (長按3秒觸發彩蛋，目標為2)
-let targetParam8 = 0, currentParam8 = 0;      // 🌟 Param8 (Param7 鎖定時的長按蓄力)
+let targetParam8 = 0, currentParam8 = 0;      // Param8 (Param7 鎖定時的長按蓄力)
 let blinkTarget = 1, blinkCurrent = 1;        
+let breathTimer = 0;                          // 🌟 獨立呼吸引擎計時器
 
 // 🔒 鎖定、記憶體與計時狀態
 let isParam2Locked = false;
@@ -40,8 +44,7 @@ let isParam3Locked = false;
 let isParamLocked = false;  
 let isParam6Triggered = false; // 標記 Param6 是否已觸發 (不可逆)
 let param5HoldStartTime = 0;   // 記錄 Param5 維持在 1 的時間
-let isHoldingForParam8 = false; // 🌟 標記是否正在為 Param8 長按
-let param8HoldStartTime = 0;    // 🌟 記錄 Param8 的長按起始時間
+let isHoldingForParam8 = false; // 標記是否正在為 Param8 長按
 let lockHistory = [];          // 記憶體堆疊
 let lastTapTime = 0;
 
@@ -139,7 +142,6 @@ function updateParams() {
     if (param5HoldStartTime === 0) {
       param5HoldStartTime = Date.now(); // 開始計時
     } else if (Date.now() - param5HoldStartTime >= 3000) {
-      // 撐過 3 秒，觸發 Param6 不可逆狀態！
       isParam6Triggered = true;
       targetParam6 = 2; // 目標值設定為 2
       console.log("💥 彩蛋觸發！Param5 停留超過3秒，Param6 已永久改變為 2！");
@@ -148,23 +150,20 @@ function updateParams() {
     param5HoldStartTime = 0; // 手指滑掉或放開，計時器歸零
   }
 
-  // 🌟 Param8 長按蓄力與階梯式吸附邏輯
+  // 🌟 Param8 絲滑蓄力邏輯：直接設定目標為 3 或 0
   if (isHoldingForParam8 && isParam7Locked) {
-    const holdTime = Date.now() - param8HoldStartTime;
-    // 每 0.4 秒升一級 (可根據手感自行微調)
-    if (holdTime < 400) {
-      targetParam8 = 0;
-    } else if (holdTime < 800) {
-      targetParam8 = 1;
-    } else if (holdTime < 1200) {
-      targetParam8 = 2;
-    } else {
-      targetParam8 = 3;
-    }
+    targetParam8 = 3; // 按住時，目標直指 3
   } else {
-    targetParam8 = 0; // 手放開或滑動取消時，目標回歸 0
+    targetParam8 = 0; // 放開時，目標直指 0
   }
 
+  // 🌟 獨立呼吸引擎 (強化呼吸幅度)
+  // 強制接管 ParamBreath，產出 0.0 ~ 1.0 的平滑正弦波浪
+  breathTimer += app.ticker.elapsedMS / 1000;
+  const breathValue = (Math.sin(breathTimer * 2.0) + 1) / 2; 
+  core.setParameterValueById("ParamBreath", breathValue);
+
+  // 參數平滑更新
   currentClothes = lerp(currentClothes, targetClothes, 0.15);
   core.setParameterValueById("Param2", currentClothes);
 
@@ -183,8 +182,8 @@ function updateParams() {
   currentParam6 = lerp(currentParam6, targetParam6, 0.05);
   core.setParameterValueById("Param6", currentParam6);
 
-  // 🌟 Param8 的過渡速度設定為 0.2，有彈性地段落吸附與瞬間回彈
-  currentParam8 = lerp(currentParam8, targetParam8, 0.2);
+  // 🌟 Param8 的絲滑過渡 (使用較小的 0.04 數值，讓它像注水一樣滑順上升跟下降)
+  currentParam8 = lerp(currentParam8, targetParam8, 0.04);
   core.setParameterValueById("Param8", currentParam8);
 
   blinkCurrent = lerp(blinkCurrent, blinkTarget, 0.25);
@@ -209,7 +208,7 @@ function startBlinkLoop() {
 function setupInteraction() {
   app.view.style.touchAction = "none";
 
-  // 1. 雙擊螢幕：只恢復「上一個」鎖定的物件 (排除不可逆的 Param6)
+  // 1. 雙擊螢幕：只恢復「上一個」鎖定的物件
   app.view.addEventListener('pointerdown', (e) => {
     const currentTime = Date.now();
     if (currentTime - lastTapTime < 300) {
@@ -247,15 +246,13 @@ function setupInteraction() {
 
   model.on('pointerdown', (e) => {
     isOnModel = true;
-    // 統一使用原生視窗座標，確保左右靈敏度 100% 相同
     startX = e.data.originalEvent.clientX || e.data.global.x; 
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
 
-    // 🌟 啟動長按蓄力機制：只要 Param7 處於鎖定狀態，按住螢幕就開始計算
+    // 🌟 極度放寬的蓄力判定：只要 Param7 處於鎖定狀態，按住螢幕任何地方就開始計算
     if (isParam7Locked) {
       isHoldingForParam8 = true;
-      param8HoldStartTime = Date.now();
     }
   });
   
@@ -264,11 +261,11 @@ function setupInteraction() {
     const diffX = e.clientX - startX; 
     const diffY = startY - e.clientY; 
     
-    // 判斷並鎖死滑動方向 (容錯 10px)
-    if (!swipeAxis && (Math.abs(diffX) > 10 || Math.abs(diffY) > 10)) {
+    // 🌟 判定極度放寬：容錯從 10 大幅提高到 35，徹底避免手抖導致長按失效
+    if (!swipeAxis && (Math.abs(diffX) > 35 || Math.abs(diffY) > 35)) {
       swipeAxis = Math.abs(diffX) > Math.abs(diffY) ? 'x' : 'y';
       
-      // 🌟 如果使用者開始滑動(超出容錯值)，就取消 Param8 的長按蓄力
+      // 如果使用者真的開始大幅度滑動，才取消 Param8 的長按蓄力
       isHoldingForParam8 = false;
     }
     
@@ -318,9 +315,8 @@ function setupInteraction() {
     isOnModel = false; 
     swipeAxis = null;
 
-    // 🌟 手指放開，立即取消 Param8 的長按並回彈
+    // 🌟 手指放開，立即取消 Param8 的長按狀態 (交由 lerp 絲滑回彈)
     isHoldingForParam8 = false;
-    targetParam8 = 0;
 
     // 判斷鎖定條件
     if (targetClothes === 1 && !isParam2Locked) {
@@ -379,7 +375,7 @@ async function start() {
     app.ticker.add(updateParams);
     
     resize();
-    console.log("✅ 畫質強化版已啟動，Param8 蓄力長按系統完美上線！");
+    console.log("✅ 畫質強化版已啟動，呼吸放大與絲滑蓄力系統完美上線！");
   } catch (err) {
     console.error("啟動失敗:", err);
   }
