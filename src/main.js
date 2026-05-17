@@ -44,6 +44,7 @@ let pipRenderTexture;
 let pipMask;
 let pipBorder;
 let currentPipAlpha = 0;
+let pipFadeOutStartTime = 0; // 用於控制消失延遲
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -254,11 +255,12 @@ function createInvisibleHitbox() {
  * 🔍 建立 200% 局部特寫畫中畫 (PiP)
  */
 function setupPiP() {
-  // 建立渲染紋理，解析度與主畫面一致
+  // 🌟 超高清設定：將 resolution 強制拉高，確保放大後依然清晰
+  const superRes = Math.max(window.devicePixelRatio * 2, 4);
   pipRenderTexture = PIXI.RenderTexture.create({
     width: window.innerWidth,
     height: window.innerHeight,
-    resolution: app.renderer.resolution || window.devicePixelRatio || 1
+    resolution: superRes
   });
   pipSprite = new PIXI.Sprite(pipRenderTexture);
   
@@ -286,45 +288,44 @@ function updatePiPLayout() {
   
   pipRenderTexture.resize(window.innerWidth, window.innerHeight);
   
-  // 🌟 這裡把方框的尺寸直接放大三倍 ( * 3 )
   const isMobile = window.innerWidth < window.innerHeight;
   const baseSize = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 420);
   const size = baseSize * 1.5; 
   
   const padding = 25;
   
-  // 將畫中畫框框往上移 (避免擋住手部)
   pipContainer.x = window.innerWidth - size - padding;
   pipContainer.y = window.innerHeight * 0.3; 
   
-  // 圓角遮罩
   pipMask.clear();
   pipMask.beginFill(0xffffff);
   pipMask.drawRoundedRect(0, 0, size, size, 20);
   pipMask.endFill();
   
-  // 繪製粉色發光感邊框
   pipBorder.clear();
   pipBorder.lineStyle(6, 0xffb3c6, 0.9);
   pipBorder.drawRoundedRect(0, 0, size, size, 20);
   
   // 🌟 絕對固定縮放倍率核心：抵銷模型的全域縮放，讓特寫畫面「永遠保持相同的物理放大比例」
-  // 這樣一來不管你按 + 或 - 縮放畫面，右上角框框裡的特寫尺寸跟對焦點都不會受影響！
-  const fixedAbsoluteZoom = 1.0; // 這是基準絕對大小
+  // 將 fixedAbsoluteZoom 從 1.0 提升到 1.7 (再大 1.7 倍)
+  const fixedAbsoluteZoom = 1.7; 
   const currentModelScale = model.scale.y; 
-  const effectiveZoom = fixedAbsoluteZoom / currentModelScale; // 反向抵銷
+  const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
   
-  pipSprite.scale.set(effectiveZoom);
+  // 🌟 這裡也把 zoomLevel 加倍 (原本是 2.0，現在是 2.0 * effectiveZoom)
+  const baseZoomLevel = 2.0;
+  const finalZoomLevel = baseZoomLevel * effectiveZoom;
+  pipSprite.scale.set(finalZoomLevel);
   
-  // 🌟 動態對焦：精準鎖定陰部，且透過 effectiveZoom 讓它在任何縮放倍率下都穩穩卡在中央
+  // 🌟 動態對焦：精準鎖定陰部
   const focusYOffset = 580; 
   const yOffset = focusYOffset * currentModelScale; 
   
   const focusX = model.x;
   const focusY = model.y + yOffset;
   
-  pipSprite.x = size / 2 - focusX * effectiveZoom;
-  pipSprite.y = size / 2 - focusY * effectiveZoom;
+  pipSprite.x = size / 2 - focusX * finalZoomLevel;
+  pipSprite.y = size / 2 - focusY * finalZoomLevel;
 }
 
 /**
@@ -344,12 +345,33 @@ function updateParams() {
     hitbox.style.display = isParam7Locked ? 'block' : 'none';
   }
 
-  // 🔍 更新 200% 特寫畫中畫的漸顯漸隱與渲染
+  // 🔍 更新局部特寫畫中畫的漸顯漸隱與渲染
   if (pipContainer) {
-    const pipTargetAlpha = (targetParam5 > 0) ? 1.0 : 0.0;
+    let pipTargetAlpha = 0.0;
+    const now = Date.now();
+
+    if (targetParam5 > 0) {
+      // 正在觸發 (長按)：目標透明度為 1，並重置消失計時器
+      pipTargetAlpha = 1.0;
+      pipFadeOutStartTime = 0;
+    } else {
+      // 未觸發 (放開手指)
+      if (currentPipAlpha > 0.01) {
+        if (pipFadeOutStartTime === 0) {
+          // 剛放開手，記錄當下時間
+          pipFadeOutStartTime = now;
+          pipTargetAlpha = 1.0; // 延遲期間保持顯示
+        } else if (now - pipFadeOutStartTime < 1000) {
+          // 放開手未滿 1 秒 (1000ms)，保持顯示
+          pipTargetAlpha = 1.0;
+        } else {
+          // 放開手超過 1 秒，目標透明度歸零，開始漸隱
+          pipTargetAlpha = 0.0;
+        }
+      }
+    }
     
-    // 🌟 非對稱漸隱邏輯：出現時很快 (0.15)，放開消失時超級慢 (0.015) 
-    // 這樣就會產生「脫衣服動畫很快彈回去，但特寫殘影慢慢消失」的效果！
+    // 🌟 非對稱漸隱邏輯：出現時很快 (0.15)，消失時超慢 (0.015) 
     const alphaLerpSpeed = (pipTargetAlpha > currentPipAlpha) ? 0.15 : 0.015;
     currentPipAlpha = lerp(currentPipAlpha, pipTargetAlpha, alphaLerpSpeed); 
     
