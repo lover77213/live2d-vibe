@@ -38,7 +38,7 @@ let pointerDownStartTime = 0;
 // 📊 全網實時計數器狀態
 let globalOpenCount = 0;
 let hasCountedThisSwipe = false; 
-const COUNTER_NAMESPACE = 'live2d_waifu_project_ultimate'; // 🌟 全新專屬空間名
+const COUNTER_NAMESPACE = 'live2d_waifu_project_v1'; // 🌟 全新空間名
 const COUNTER_KEY = 'pussy_open_count'; 
 
 let userScaleOffset = 0.5; 
@@ -92,8 +92,8 @@ function setupCounter() {
   // 🌟 雙伺服器同步邏輯 (拔除 Headers 避免 CORS 阻擋，單純用時間戳破除快取)
   const syncWithCloud = () => {
     const ts = Date.now();
-    // 1. 首選高速計數伺服器
-    fetch(`https://abacus.jsn.cam/get/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${ts}`)
+    // 1. 首選高速計數伺服器 (已修正為正確的真實網址)
+    fetch(`https://abacus.jasoncameron.dev/get/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${ts}`)
       .then(res => res.json())
       .then(data => {
         if (data && typeof data.value === 'number') updateAndSaveCount(data.value);
@@ -109,8 +109,8 @@ function setupCounter() {
   };
 
   syncWithCloud();
-  // 每 1 分鐘同步一次最新總量
-  setInterval(syncWithCloud, 60000);
+  // 🌟 每 10 秒同步一次最新總量 (方便你雙開無痕與一般視窗測試)
+  setInterval(syncWithCloud, 10000);
 }
 
 // 內部更新計數器與存檔
@@ -145,7 +145,7 @@ function incrementGlobalCount() {
   const ts = Date.now();
   
   // 🌟 雙備援發送至雲端 (+1)，確保 100% 寫入成功
-  fetch(`https://abacus.jsn.cam/hit/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${ts}`)
+  fetch(`https://abacus.jasoncameron.dev/hit/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${ts}`)
     .then(res => res.json())
     .then(data => {
       if (data && typeof data.value === 'number') updateAndSaveCount(data.value);
