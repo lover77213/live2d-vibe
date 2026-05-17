@@ -36,7 +36,6 @@ let targetParam6 = 0, currentParam6 = 0;
 let currentParam8 = 0;                        
 let param8Progress = 0; // 🌟 Param8 的純淨內部進度 (0.0 ~ 1.0)
 let blinkTarget = 1, blinkCurrent = 1;        
-let breathTimer = 0;    // 🌟 呼吸專用計時器
 
 // 🔒 鎖定、記憶體與計時狀態
 let isParam2Locked = false;
@@ -61,11 +60,12 @@ function resize() {
   if (!model) return;
 
   try {
-    // 分別計算以「寬」和「高」為基準的理想縮放值
-    const scaleByWidth = window.innerWidth * 0.0008; 
+    // 🌟 針對手機裁切問題：大幅下調寬度計算的係數 (從 0.00085 降至 0.00055)
+    // 數字越小，在窄螢幕上角色就會被縮得越小，保證兩側不被裁切
+    const scaleByWidth = window.innerWidth * 0.00055; 
     const scaleByHeight = window.innerHeight * 0.0004;
 
-    // 🌟 核心：永遠取最小的那個值，保證模型絕對完整顯示！
+    // 永遠取最小的那個值，保證模型絕對完整顯示！
     let baseScale = Math.min(scaleByWidth, scaleByHeight);
 
     let finalScale = baseScale * userScaleOffset;
@@ -149,16 +149,16 @@ function updateParams() {
     param5HoldStartTime = 0; 
   }
 
-  // 🌟 Param8 終極絲滑水球動畫 (防黑幀 + 加速回彈)
+  // 🌟 Param8 終極絲滑水球動畫
   const dt = app.ticker.elapsedMS / 1000.0;
   
   if (isHoldingForParam8 && isParam7Locked) {
-    param8Progress += 3.5 * dt; // 擠壓速度加快
+    param8Progress += 3.5 * dt; // 加快擠壓速度
   } else {
-    param8Progress -= 4.5 * dt; // 回彈速度加快，展現 Q 彈感
+    param8Progress -= 4.0 * dt; // 加快回彈速度
   }
 
-  // 🌟 絕對防溢位夾斷：保證數值乾淨，消滅黑幀
+  // 嚴格數值夾斷：保證進度絕對在 0.0 到 1.0 之間，防止黑幀溢位
   param8Progress = Math.max(0.0, Math.min(1.0, param8Progress));
 
   // SmootherStep 曲線公式：最頂級的平滑過渡
@@ -167,11 +167,12 @@ function updateParams() {
   currentParam8 = easeT * 3.0; // 映射到 0~3
   core.setParameterValueById("Param8", currentParam8);
 
-  // 🌟 真・完美循環呼吸 (絕不卡頓)
-  // 單一純淨的波浪，乘上 2.0 稍微加快一點呼吸節奏。
-  breathTimer += dt * 2.0; 
-  // Math.cos 完美映射到 0.0 ~ 1.0 之間
-  const breathValue = (Math.cos(breathTimer) * 0.5) + 0.5;
+  // 🌟 真・完美無縫循環呼吸 (使用底層高精度硬體時鐘，徹底消滅微卡頓)
+  // performance.now() 保證時間是絕對流逝的，完全不受畫面掉幀或延遲影響
+  const timeSec = performance.now() / 1000.0;
+  
+  // 乘上 2.5 調整呼吸速度，正弦波映射到 0.0 ~ 1.0 之間
+  const breathValue = (Math.sin(timeSec * 2.5) * 0.5) + 0.5;
   core.setParameterValueById("ParamBreath", breathValue);
 
   // 🌟 強制左右互斥
