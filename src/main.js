@@ -21,32 +21,32 @@ const Live2DModel = PIXI.live2d.Live2DModel;
 Live2DModel.registerTicker(PIXI.Ticker);
 
 let model;
-let startX = 0; // X 軸起始位置 (用於左右滑動)
-let startY = 0; // Y 軸起始位置 (用於上下滑動)
+let startX = 0; 
+let startY = 0; 
 let isOnModel = false;
-let swipeAxis = null; // 滑動軸向鎖定 (防止斜滑同時觸發)
+let swipeAxis = null; 
 
 // 🌟 參數狀態管理
-let targetClothes = -1, currentClothes = -1;  // Param2 (上下)
-let targetParam7 = -1, currentParam7 = -1;    // Param7 (向下)
-let targetParam5 = -1, currentParam5 = -1;    // Param5 (向上接管)
+let targetClothes = -1, currentClothes = -1;  // Param2
+let targetParam7 = -1, currentParam7 = -1;    // Param7
+let targetParam5 = -1, currentParam5 = -1;    // Param5
 let targetParam3 = -1, currentParam3 = -1;    // Param3 (右滑)
 let targetParam = -1, currentParam = -1;      // Param (左滑)
-let targetParam6 = 0, currentParam6 = 0;      // Param6 (長按3秒觸發彩蛋，目標為2)
-let targetParam8 = 0, currentParam8 = 0;      // Param8 (Param7 鎖定時的長按蓄力)
+let targetParam6 = 0, currentParam6 = 0;      // Param6
+let targetParam8 = 0, currentParam8 = 0;      // 🌟 Param8 (水球擠壓)
+let targetMouthForm = 0, currentMouthForm = 0; 
 let blinkTarget = 1, blinkCurrent = 1;        
 let breathTimer = 0;                          // 🌟 獨立呼吸引擎計時器
 
 // 🔒 鎖定、記憶體與計時狀態
-let isParam2Locked = false;
-let isParam7Locked = false;
-let isParam3Locked = false; 
-let isParamLocked = false;  
-let isParam6Triggered = false; // 標記 Param6 是否已觸發 (不可逆)
-let param5HoldStartTime = 0;   // 記錄 Param5 維持在 1 的時間
+let isParam2Locked = false, isParam7Locked = false;
+let isParam3Locked = false, isParamLocked = false;  
+let isParam6Triggered = false; 
+let param5HoldStartTime = 0;   
 let isHoldingForParam8 = false; // 標記是否正在為 Param8 長按
-let lockHistory = [];          // 記憶體堆疊
+let lockHistory = [];       
 let lastTapTime = 0;
+let mouthTimer = null; 
 
 let userScaleOffset = 0.5; 
 let zoomLock = false; 
@@ -54,13 +54,20 @@ let zoomLock = false;
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /**
- * 📏 自動縮放與畫質維持
+ * 📏 自動縮放 (支援手機端縮小 40%)
  */
 function resize() {
   if (!model) return;
 
   try {
-    const baseScale = window.innerHeight * 0.0004;
+    // 基礎縮放比例
+    let baseScale = window.innerHeight * 0.0004;
+
+    // 🌟 響應式判定：如果是手機版 (寬度 <= 768px)，縮小 40% (即乘以 0.6)
+    if (window.innerWidth <= 768) {
+      baseScale = baseScale * 0.6;
+    }
+
     let finalScale = baseScale * userScaleOffset;
 
     if (finalScale > 2.0 || finalScale < 0.001 || isNaN(finalScale)) {
@@ -81,9 +88,6 @@ function resize() {
   }
 }
 
-/**
- * 🎨 建立縮放按鈕
- */
 function createZoomButtons() {
   const existing = document.getElementById('zoom-container');
   if (existing) existing.remove();
@@ -113,12 +117,9 @@ function createZoomButtons() {
   const handleZoom = (amount) => {
     if (zoomLock) return;
     zoomLock = true;
-    
     userScaleOffset = parseFloat((userScaleOffset + amount).toFixed(2));
     userScaleOffset = Math.max(0.1, Math.min(userScaleOffset, 5.0));
-    
     resize();
-    
     setTimeout(() => { zoomLock = false; }, 400);
   };
 
@@ -137,31 +138,36 @@ function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
-  // 🌟 隱藏彩蛋：Param5 長按 3 秒計時邏輯
+  // Param5/6 觸發與嘴型連動
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) {
-      param5HoldStartTime = Date.now(); // 開始計時
+      param5HoldStartTime = Date.now(); 
     } else if (Date.now() - param5HoldStartTime >= 3000) {
       isParam6Triggered = true;
-      targetParam6 = 2; // 目標值設定為 2
-      console.log("💥 彩蛋觸發！Param5 停留超過3秒，Param6 已永久改變為 2！");
+      targetParam6 = 2; 
+      targetMouthForm = -1.0;
+      if (mouthTimer) clearTimeout(mouthTimer);
+      mouthTimer = setTimeout(() => { targetMouthForm = 0; }, 3000);
     }
   } else if (targetParam5 !== 1) {
-    param5HoldStartTime = 0; // 手指滑掉或放開，計時器歸零
+    param5HoldStartTime = 0; 
   }
 
-  // 🌟 Param8 絲滑蓄力邏輯：直接設定目標為 3 或 0
+  // 🌟 Param8 絲滑水球擠壓邏輯：目標直接切換 3 或 0
   if (isHoldingForParam8 && isParam7Locked) {
-    targetParam8 = 3; // 按住時，目標直指 3
+    targetParam8 = 3; 
   } else {
-    targetParam8 = 0; // 放開時，目標直指 0
+    targetParam8 = 0; 
   }
 
-  // 🌟 獨立呼吸引擎 (強化呼吸幅度)
-  // 強制接管 ParamBreath，產出 0.0 ~ 1.0 的平滑正弦波浪
+  // 🌟 獨立呼吸引擎：強制接管 ParamBreath (強化幅度)
   breathTimer += app.ticker.elapsedMS / 1000;
   const breathValue = (Math.sin(breathTimer * 2.0) + 1) / 2; 
   core.setParameterValueById("ParamBreath", breathValue);
+
+  // 🌟 左右硬互斥：確保 1 絕對不同時出現
+  if (targetParam3 === 1) targetParam = -1;
+  if (targetParam === 1) targetParam3 = -1;
 
   // 參數平滑更新
   currentClothes = lerp(currentClothes, targetClothes, 0.15);
@@ -182,9 +188,12 @@ function updateParams() {
   currentParam6 = lerp(currentParam6, targetParam6, 0.05);
   core.setParameterValueById("Param6", currentParam6);
 
-  // 🌟 Param8 的絲滑過渡 (使用較小的 0.04 數值，讓它像注水一樣滑順上升跟下降)
-  currentParam8 = lerp(currentParam8, targetParam8, 0.04);
+  // 🌟 Param8 的絲滑過渡 (lerp 係數設為 0.1，創造平滑且迅速的 Q 彈感)
+  currentParam8 = lerp(currentParam8, targetParam8, 0.1);
   core.setParameterValueById("Param8", currentParam8);
+
+  currentMouthForm = lerp(currentMouthForm, targetMouthForm, 0.2);
+  core.setParameterValueById("ParamMouthForm", currentMouthForm);
 
   blinkCurrent = lerp(blinkCurrent, blinkTarget, 0.25);
   core.setParameterValueById("ParamEyeLOpen", blinkCurrent);
@@ -202,13 +211,10 @@ function startBlinkLoop() {
   loop();
 }
 
-/**
- * 👆 設定互動邏輯 (十字滑動、互斥鎖定)
- */
 function setupInteraction() {
   app.view.style.touchAction = "none";
 
-  // 1. 雙擊螢幕：只恢復「上一個」鎖定的物件
+  // 雙擊復原
   app.view.addEventListener('pointerdown', (e) => {
     const currentTime = Date.now();
     if (currentTime - lastTapTime < 300) {
@@ -216,41 +222,29 @@ function setupInteraction() {
         const lastLocked = lockHistory.pop(); 
         
         if (lastLocked === 'Param2') {
-          isParam2Locked = false;
-          targetClothes = -1;
-          targetParam5 = -1; 
-          console.log("🔄 復原：Param2");
+          isParam2Locked = false; targetClothes = -1; targetParam5 = -1; 
         } else if (lastLocked === 'Param7') {
-          isParam7Locked = false;
-          targetParam7 = -1;
-          console.log("🔄 復原：Param7");
+          isParam7Locked = false; targetParam7 = -1;
         } else if (lastLocked === 'Param3') { 
-          isParam3Locked = false;
-          targetParam3 = -1;
-          console.log("🔄 復原：Param3 (右滑)");
+          isParam3Locked = false; targetParam3 = -1;
         } else if (lastLocked === 'Param') { 
-          isParamLocked = false;
-          targetParam = -1;
-          console.log("🔄 復原：Param (左滑)");
+          isParamLocked = false; targetParam = -1;
         }
-      } else {
-        console.log("ℹ️ 已經全部復原");
       }
     }
     lastTapTime = currentTime;
   });
 
-  // 2. 精準觸控：綁定在模型上
   model.interactive = true; 
   model.buttonMode = true; 
 
   model.on('pointerdown', (e) => {
     isOnModel = true;
-    startX = e.data.originalEvent.clientX || e.data.global.x; 
-    startY = e.data.originalEvent.clientY || e.data.global.y; 
+    startX = e.data.global.x; 
+    startY = e.data.global.y; 
     swipeAxis = null; 
 
-    // 🌟 極度放寬的蓄力判定：只要 Param7 處於鎖定狀態，按住螢幕任何地方就開始計算
+    // 🌟 全域寬鬆判定：只要 Param7 鎖定，點擊畫面任何地方都開始擠壓水球
     if (isParam7Locked) {
       isHoldingForParam8 = true;
     }
@@ -261,51 +255,34 @@ function setupInteraction() {
     const diffX = e.clientX - startX; 
     const diffY = startY - e.clientY; 
     
-    // 🌟 判定極度放寬：容錯從 10 大幅提高到 35，徹底避免手抖導致長按失效
+    // 🌟 容錯值大幅提高至 35px，防止微小手抖中斷蓄力
     if (!swipeAxis && (Math.abs(diffX) > 35 || Math.abs(diffY) > 35)) {
       swipeAxis = Math.abs(diffX) > Math.abs(diffY) ? 'x' : 'y';
-      
-      // 如果使用者真的開始大幅度滑動，才取消 Param8 的長按蓄力
-      isHoldingForParam8 = false;
+      isHoldingForParam8 = false; // 大幅滑動才取消擠壓
     }
     
     if (swipeAxis === 'x') {
-      // ➡️ 橫向滑動
-      if (targetClothes === -1 && !isParam2Locked) { 
+      if (!isParam2Locked) { 
         if (diffX > 0) {
-          // 【右滑】觸發 Param3，並強制壓制 Param
           if (!isParam3Locked) targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1);
-          if (!isParamLocked) targetParam = -1; 
+          targetParam = -1; 
         } else {
-          // 【左滑】觸發 Param，並強制壓制 Param3
           const moveLeft = Math.abs(diffX);
           if (!isParamLocked) targetParam = moveLeft < 40 ? -1 : (moveLeft < 100 ? 0 : 1);
-          if (!isParam3Locked) targetParam3 = -1;
+          targetParam3 = -1;
         }
       }
     } else if (swipeAxis === 'y') {
-      // ⬆️⬇️ 縱向滑動
       if (diffY > 0) {
-        // 互斥機制：如果左右 (Param3 或 Param) 處於鎖定狀態，則完全禁止向上滑動
-        if (!isParam3Locked && !isParamLocked) {
-          if (isParam2Locked) {
-            targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
-          } else {
-            targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
-          }
-        } else {
-          console.log("⛔ 左右狀態尚未解除，禁止向上滑動！");
-        }
-      } else {
-        // 向下拖曳
-        if (!isParam7Locked) {
-          const down = Math.abs(diffY);
-          if (down < 30) targetParam7 = -1;
-          else if (down < 80) targetParam7 = 0.8;
-          else if (down < 140) targetParam7 = 1.6;
-          else if (down < 200) targetParam7 = 2.4;
-          else targetParam7 = 2.8;
-        }
+        if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+        else targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+      } else if (!isParam7Locked) {
+        const down = Math.abs(diffY);
+        if (down < 30) targetParam7 = -1;
+        else if (down < 80) targetParam7 = 0.8;
+        else if (down < 140) targetParam7 = 1.6;
+        else if (down < 200) targetParam7 = 2.4;
+        else targetParam7 = 2.8;
       }
     }
   });
@@ -315,31 +292,14 @@ function setupInteraction() {
     isOnModel = false; 
     swipeAxis = null;
 
-    // 🌟 手指放開，立即取消 Param8 的長按狀態 (交由 lerp 絲滑回彈)
+    // 🌟 手指放開，立刻取消擠壓 (交由 lerp 絲滑回彈)
     isHoldingForParam8 = false;
 
-    // 判斷鎖定條件
-    if (targetClothes === 1 && !isParam2Locked) {
-      isParam2Locked = true;
-      lockHistory.push('Param2');
-    }
-    
-    if (targetParam7 === 2.8 && !isParam7Locked) {
-      isParam7Locked = true;
-      lockHistory.push('Param7');
-    }
+    if (targetClothes === 1 && !isParam2Locked) { isParam2Locked = true; lockHistory.push('Param2'); }
+    if (targetParam7 === 2.8 && !isParam7Locked) { isParam7Locked = true; lockHistory.push('Param7'); }
+    if (targetParam3 === 1 && !isParam3Locked) { isParam3Locked = true; lockHistory.push('Param3'); }
+    if (targetParam === 1 && !isParamLocked) { isParamLocked = true; lockHistory.push('Param'); }
 
-    if (targetParam3 === 1 && !isParam3Locked) {
-      isParam3Locked = true;
-      lockHistory.push('Param3');
-    }
-
-    if (targetParam === 1 && !isParamLocked) {
-      isParamLocked = true;
-      lockHistory.push('Param');
-    }
-
-    // 未達鎖定條件的參數，手指放開即彈回
     targetParam5 = -1;
     if (!isParam3Locked) targetParam3 = -1;
     if (!isParamLocked) targetParam = -1; 
@@ -348,11 +308,8 @@ function setupInteraction() {
 
 async function start() {
   try {
-    console.log("⏳ 正在讀取模型...");
-    const modelPath = "public/model/model.model3.json";
-
-    model = await Live2DModel.from(modelPath, { autoUpdate: true });
-
+    model = await Live2DModel.from("public/model/model.model3.json", { autoUpdate: true });
+    
     model.on('modelLoaded', () => {
       model.internalModel.textures.forEach((tex) => {
         if (tex.baseTexture) {
@@ -375,7 +332,6 @@ async function start() {
     app.ticker.add(updateParams);
     
     resize();
-    console.log("✅ 畫質強化版已啟動，呼吸放大與絲滑蓄力系統完美上線！");
   } catch (err) {
     console.error("啟動失敗:", err);
   }
