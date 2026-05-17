@@ -311,10 +311,9 @@ function updatePiPLayout() {
   pipSprite.scale.set(zoomLevel);
   
   // 🌟 動態對焦核心邏輯：確保無論如何縮放都不會跑位
-  // focusYOffset 代表本機座標偏移量。數值越負，鏡頭越往上抬。
-  // 將其大幅上調至 -450，以確保特寫精準鎖定在上方物件上。
-  // 如果你想微調，只需改這個數字就好 (例如改成 -550 會更高)
-  const focusYOffset = -450; 
+  // focusYOffset 代表本機座標偏移量。在螢幕座標中，正數是往下。
+  // 改為 +280 精準狙擊下半身 (陰部) 位置！(如果覺得偏上/下，可微調此數值)
+  const focusYOffset = 280; 
   const yOffset = focusYOffset * model.scale.y; 
   
   const focusX = model.x;
@@ -501,7 +500,7 @@ function setupInteraction() {
         }
 
         // 🌟 無縫解除左右鎖定：只要參數退回 -1 (回到中間)，就立刻解除該方向的鎖定
-        // 即便「放開手指」，也能立刻在下一次觸摸時直接取得上下滑動的權限！
+        // 即便「放開手指」，下一次觸摸螢幕也能直接獲得上下滑動 (脫衣服) 的權限！
         if (targetParam3 === -1) isParam3Locked = false;
         if (targetParam === -1) isParamLocked = false;
       }
