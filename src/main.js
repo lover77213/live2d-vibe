@@ -313,7 +313,7 @@ function updatePiPLayout() {
   // 🌟 動態對焦核心邏輯：確保無論如何縮放都不會跑位
   // focusYOffset 代表本機座標偏移量。在螢幕座標中，正數是往下。
   // 改為 +280 精準狙擊下半身 (陰部) 位置！(如果覺得偏上/下，可微調此數值)
-  const focusYOffset = 280; 
+  const focusYOffset = 330; 
   const yOffset = focusYOffset * model.scale.y; 
   
   const focusX = model.x;
