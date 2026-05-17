@@ -281,7 +281,7 @@ function setupInteraction() {
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
 
-    // 🌟 恢復精準打擊 (HitTest) 邏輯
+    // 🌟 精準打擊 (HitTest) 邏輯
     if (isParam7Locked) {
       try {
         const hitX = e.data.global.x;
@@ -402,13 +402,21 @@ async function start() {
     const modelPath = "public/model/model.model3.json";
     model = await Live2DModel.from(modelPath, { autoUpdate: true });
 
-    // 🌟 核心防禦：多版本貼圖相容陣列 (徹底解決 .moc3 報錯問題)
+    // 🌟 終極防護：安全讀取 PIXI 常數，找不到就給數字預設值
     const textures = model.textures || model.internalModel?.textures || [];
     textures.forEach((tex) => {
       if (tex && tex.baseTexture) {
-        tex.baseTexture.mipmap = PIXI.TYPES.MIPMAP_MODES.ON;
+        // 安全 Mipmap 設定
+        tex.baseTexture.mipmap = (PIXI.MIPMAP_MODES && PIXI.MIPMAP_MODES.ON !== undefined) 
+          ? PIXI.MIPMAP_MODES.ON 
+          : 1; // 1 通常代表 ON
+          
         tex.baseTexture.anisotropicLevel = 16;
-        tex.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        
+        // 安全 Scale Mode 設定
+        tex.baseTexture.scaleMode = (PIXI.SCALE_MODES && PIXI.SCALE_MODES.LINEAR !== undefined) 
+          ? PIXI.SCALE_MODES.LINEAR 
+          : 1; // 1 通常代表 LINEAR
       }
     });
     
