@@ -1,5 +1,5 @@
 /**
- * 🚀 PIXI 應用程式初始化與 Live2D 互動核心
+ * 🚀 PIXI 應用程式初始化與 Live2D 互動核心 (終極優化版)
  */
 
 let app; 
@@ -37,7 +37,7 @@ let pointerDownStartTime = 0;
 
 // 📊 全網實時計數器狀態
 let globalOpenCount = 0;
-let hasCountedThisSwipe = false; // 確保每次撥開只算1次
+let hasCountedThisSwipe = false; 
 const COUNTER_NAMESPACE = 'live2d_waifu_project_8899'; // API 專屬空間名
 const COUNTER_KEY = 'pussy_open_count'; // API 專屬鍵值
 
@@ -59,7 +59,6 @@ const lerp = (a, b, t) => a + (b - a) * t;
  * 📊 建立與初始化全網計數器 UI
  */
 function setupCounter() {
-  // 1. 建立 UI 元素
   const counterDiv = document.createElement('div');
   counterDiv.id = 'global-counter-ui';
   counterDiv.style.cssText = `
@@ -85,34 +84,27 @@ function setupCounter() {
   `;
   document.body.appendChild(counterDiv);
 
-  // 2. 優先讀取本地緩存防呆
+  // 優先讀取本地緩存
   const localCount = localStorage.getItem('localPussyCount');
-  if (localCount) globalOpenCount = parseInt(localCount);
+  if (localCount) globalOpenCount = parseInt(localCount, 10);
   updateCounterUI();
 
-  // 3. 向公共 API 獲取全網最新真實數據
-  fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}`)
-    .then(res => res.json())
-    .then(data => {
-      if (data && data.count) {
-        globalOpenCount = Math.max(globalOpenCount, data.count);
-        localStorage.setItem('localPussyCount', globalOpenCount);
-        updateCounterUI();
-      }
-    }).catch(err => console.log("計數器API讀取失敗，使用本地數據", err));
-
-  // 4. 設定每 1 分鐘 (60000ms) 背景同步一次最新總量
-  setInterval(() => {
+  // 背景非同步向 API 獲取全網最新數據 (不阻擋主程式)
+  const syncWithCloud = () => {
     fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}`)
       .then(res => res.json())
       .then(data => {
-        if (data && data.count > globalOpenCount) {
+        if (data && typeof data.count === 'number' && data.count > globalOpenCount) {
           globalOpenCount = data.count;
           localStorage.setItem('localPussyCount', globalOpenCount);
           updateCounterUI();
         }
-      }).catch(() => {});
-  }, 60000);
+      }).catch(() => { /* 靜默處理網路錯誤，依賴本地緩存 */ });
+  };
+
+  syncWithCloud();
+  // 每 1 分鐘同步一次最新總量
+  setInterval(syncWithCloud, 60000);
 }
 
 // 更新計數器文字與跳動特效
@@ -125,7 +117,7 @@ function updateCounterUI() {
   // 觸發放大彈跳特效
   counterDiv.style.transform = 'translateX(-50%) scale(1.15)';
   setTimeout(() => {
-    counterDiv.style.transform = 'translateX(-50%) scale(1)';
+    if (counterDiv) counterDiv.style.transform = 'translateX(-50%) scale(1)';
   }, 150);
 }
 
@@ -139,8 +131,8 @@ function incrementGlobalCount() {
   fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}/up`)
     .then(res => res.json())
     .then(data => {
-      if (data && data.count > globalOpenCount) {
-        globalOpenCount = data.count; // 校正雲端最新數據
+      if (data && typeof data.count === 'number' && data.count > globalOpenCount) {
+        globalOpenCount = data.count; 
         localStorage.setItem('localPussyCount', globalOpenCount);
         updateCounterUI();
       }
@@ -365,13 +357,12 @@ function setupPiP() {
   pipMask = new PIXI.Graphics();
   pipBorder = new PIXI.Graphics();
   
-  // 🌟 建立「小穴特寫」文字標籤
   const textStyle = new PIXI.TextStyle({
       fontFamily: 'sans-serif',
       fontSize: isMobile ? 18 : 24,
       fontWeight: 'bold',
-      fill: ['#ffffff'], // 白色字體
-      stroke: '#ffb3c6', // 粉色描邊
+      fill: ['#ffffff'], 
+      stroke: '#ffb3c6', 
       strokeThickness: 4,
       dropShadow: true,
       dropShadowColor: '#000000',
@@ -381,7 +372,6 @@ function setupPiP() {
   });
   pipLabelText = new PIXI.Text('小穴特寫', textStyle);
   
-  // 將元素加入容器
   pipContainer.addChild(pipSprite);
   pipContainer.addChild(pipMask);
   pipContainer.addChild(pipBorder);
@@ -399,7 +389,10 @@ function setupPiP() {
 function updatePiPLayout() {
   if (!pipContainer || !pipRenderTexture || !model) return;
   
-  pipRenderTexture.resize(window.innerWidth, window.innerHeight);
+  // 避免無效的 resize 導致警告
+  if (window.innerWidth > 0 && window.innerHeight > 0) {
+    pipRenderTexture.resize(window.innerWidth, window.innerHeight);
+  }
   
   const isMobile = window.innerWidth < window.innerHeight;
   const baseSize = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 420);
@@ -425,7 +418,7 @@ function updatePiPLayout() {
   }
   
   const fixedAbsoluteZoom = 1.2; 
-  const currentModelScale = model.scale.y; 
+  const currentModelScale = model.scale.y || 1; 
   const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
   
   const baseZoomLevel = 2.0;
@@ -457,14 +450,13 @@ function updateParams() {
     hitbox.style.display = isParam7Locked ? 'block' : 'none';
   }
 
-  // 🌟 全網計數器邏輯觸發點
-  // 只要目標參數大於0(代表衣服被撥開)，且這次拉開還沒算過分數
+  // 🌟 全網計數器觸發判定
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
-    hasCountedThisSwipe = true; // 鎖定，避免狂刷
-    incrementGlobalCount(); // 發送 +1 到雲端
+    hasCountedThisSwipe = true; 
+    incrementGlobalCount(); 
   }
 
-  // 🔍 更新局部特寫畫中畫的漸顯漸隱與渲染
+  // 🔍 更新局部特寫畫中畫
   if (pipContainer) {
     let pipTargetAlpha = 0.0;
     
@@ -491,6 +483,7 @@ function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
+  // 彩蛋邏輯
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
     else if (Date.now() - param5HoldStartTime >= 3000) {
@@ -656,7 +649,7 @@ function setupInteraction() {
 
     targetParam5 = -1;
     
-    // 🌟 當使用者鬆開手，重置計數鎖定，下一次拉開才能再次 +1
+    // 鬆開時重置計數鎖定，必須重新滑動才會再次 +1
     hasCountedThisSwipe = false; 
 
     if (!isParam3Locked) targetParam3 = -1;
@@ -720,7 +713,7 @@ async function start() {
     createEffectContainer(); 
     createInvisibleHitbox(); 
 
-    // 🌟 啟動時建立全網計數器 UI 並開始同步
+    // 🌟 啟動時建立 UI 並執行首次同步
     setupCounter();
 
     window.model = model;
