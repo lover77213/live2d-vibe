@@ -214,7 +214,7 @@ function createZoomButtons() {
   container.id = 'zoom-container';
   container.style.cssText = `
     position: fixed; bottom: 80px; right: 25px;
-    display: flex; flex-direction: column; gap: 20px; z-index: 10000;
+    display: flex; flex-direction: column; gap: 20px; z-index: 6000;
   `;
 
   const btnStyle = `
