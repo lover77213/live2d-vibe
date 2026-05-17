@@ -44,7 +44,6 @@ let pipRenderTexture;
 let pipMask;
 let pipBorder;
 let currentPipAlpha = 0;
-let pipFadeOutStartTime = 0; 
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -246,13 +245,18 @@ function createInvisibleHitbox() {
  * 🔍 建立 200% 局部特寫畫中畫 (PiP)
  */
 function setupPiP() {
-  // 🌟 終極高清設定：強制將 resolution 拉高至 8 (或裝置像素比的 4 倍)，確保擷取原始最清晰像素
-  const superRes = Math.max(window.devicePixelRatio * 4, 8);
+  // 🌟 解決手機黑屏問題：
+  // 之前強制將 resolution 拉到 8，這會導致手機上的紋理尺寸超過 WebGL 硬體上限 (通常是 4096x4096)，引發黑屏。
+  // 現在改為智慧判斷：手機最高限制在 3 (已達肉眼極限)，電腦最高限制在 4。
+  const isMobile = window.innerWidth < window.innerHeight;
+  const dpr = window.devicePixelRatio || 1;
+  const superRes = isMobile ? Math.min(dpr * 1.5, 3) : Math.min(dpr * 2, 4);
+
   pipRenderTexture = PIXI.RenderTexture.create({
     width: window.innerWidth,
     height: window.innerHeight,
     resolution: superRes,
-    scaleMode: PIXI.SCALE_MODES.LINEAR // 確保平滑縮放
+    scaleMode: PIXI.SCALE_MODES.LINEAR 
   });
   
   pipSprite = new PIXI.Sprite(pipRenderTexture);
