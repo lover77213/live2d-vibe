@@ -308,7 +308,7 @@ function updatePiPLayout() {
   const baseSize = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 420);
   
   // 🌟 將特寫框框稍微縮小一點 (1.5 -> 1.35)
-  const size = baseSize * 1.35; 
+  const size = baseSize * 1.1; 
   
   const padding = 25;
   
