@@ -308,7 +308,7 @@ function updatePiPLayout() {
   const baseSize = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 420);
   
   // 🌟 將特寫框框稍微縮小一點 (1.5 -> 1.35)
-  const size = baseSize * 1.1; 
+  const size = baseSize * 1.5; 
   
   const padding = 25;
   
@@ -333,7 +333,7 @@ function updatePiPLayout() {
   }
   
   // 🌟 將內部模型的絕對放大倍率稍微調小 (1.7 -> 1.55)
-  const fixedAbsoluteZoom = 1.55; 
+  const fixedAbsoluteZoom = 1.2; 
   const currentModelScale = model.scale.y; 
   const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
   
@@ -371,7 +371,7 @@ function updateParams() {
     let pipTargetAlpha = 0.0;
     
     // 🌟 長按 1.5 秒才顯示特寫
-    if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1500)) {
+    if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1000)) {
       pipTargetAlpha = 1.0;
     } 
 
