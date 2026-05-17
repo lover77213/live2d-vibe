@@ -179,7 +179,6 @@ function spawnFloatingText(x, y) {
   };
 }
 
-
 /**
  * ⚙️ 更新所有 Live2D 參數
  */
@@ -291,12 +290,12 @@ function setupInteraction() {
 
         if (hitAreas.includes('Param8')) {
           isHoldingForParam8 = true;
-          // 💖 觸發漂浮文字動畫 (傳入客戶端的螢幕點擊座標)
+          // 💖 觸發漂浮文字動畫
           const clientX = e.data.originalEvent.clientX || hitX;
           const clientY = e.data.originalEvent.clientY || hitY;
           spawnFloatingText(clientX, clientY);
         } else if (hitAreas.length === 0) {
-          // 容錯機制：如果完全沒設定 HitArea，允許全螢幕觸發並顯示特效
+          // 容錯機制
           console.warn("⚠️ 模型尚未設定 HitArea！請建立 'Param8' 判定區。");
           isHoldingForParam8 = true;
           const clientX = e.data.originalEvent.clientX || hitX;
@@ -403,8 +402,10 @@ async function start() {
     const modelPath = "public/model/model.model3.json";
     model = await Live2DModel.from(modelPath, { autoUpdate: true });
 
-    model.internalModel.textures.forEach((tex) => {
-      if (tex.baseTexture) {
+    // 🌟 核心防禦：多版本貼圖相容陣列 (徹底解決 .moc3 報錯問題)
+    const textures = model.textures || model.internalModel?.textures || [];
+    textures.forEach((tex) => {
+      if (tex && tex.baseTexture) {
         tex.baseTexture.mipmap = PIXI.TYPES.MIPMAP_MODES.ON;
         tex.baseTexture.anisotropicLevel = 16;
         tex.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
