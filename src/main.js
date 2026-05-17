@@ -138,8 +138,8 @@ function createEffectContainer() {
   document.body.appendChild(container);
 }
 
-// 支援傳入自訂文字內容與顏色
-function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6") {
+// 支援傳入自訂文字、顏色、停留時間與大小
+function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", duration = 1500, fontSize = "28px") {
   const container = document.getElementById('effect-container');
   if (!container) return;
 
@@ -152,24 +152,25 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6") {
     left: ${x}px;
     top: ${y}px;
     color: ${color}; 
-    font-size: 28px;
+    font-size: ${fontSize};
     font-weight: bold;
     font-family: sans-serif;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+    text-shadow: 2px 2px 6px rgba(0,0,0,0.8);
     transform: translate(-50%, -50%); 
     opacity: 0;
+    white-space: nowrap; /* 防止大字體被換行 */
   `;
 
   container.appendChild(textEl);
 
-  // 漂浮動畫
+  // 漂浮動畫 (調整 offset 讓文字能停留更久)
   const animation = textEl.animate([
     { transform: 'translate(-50%, -50%)', opacity: 0 },
-    { transform: 'translate(-50%, -70%)', opacity: 1, offset: 0.2 }, 
-    { transform: 'translate(-50%, -100%)', opacity: 1, offset: 0.7 }, 
-    { transform: 'translate(-50%, -120%)', opacity: 0 } 
+    { transform: 'translate(-50%, -70%)', opacity: 1, offset: 0.1 },  // 快速浮現
+    { transform: 'translate(-50%, -100%)', opacity: 1, offset: 0.8 }, // 緩慢上升並停留
+    { transform: 'translate(-50%, -120%)', opacity: 0 }               // 最後漸隱消失
   ], {
-    duration: 1500, 
+    duration: duration, 
     easing: 'ease-out',
     fill: 'forwards'
   });
@@ -193,17 +194,17 @@ function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
-  // 🌟 彩蛋邏輯 (Param6 觸發時加入文字特效)
+  // 🌟 彩蛋邏輯 (Param6 觸發時加入專屬大字體特效)
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
     else if (Date.now() - param5HoldStartTime >= 3000) {
       isParam6Triggered = true;
       targetParam6 = 2; 
       
-      // 觸發 Param6 特效文字，顯示在螢幕中心偏上
+      // 觸發 Param6 特效文字，顯示在螢幕中心偏上，放大至 52px，並持續 3000 毫秒 (3秒)
       const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight * 0.4; // 偏上方
-      spawnFloatingText(centerX, centerY, "處女膜破了... 💔", "#ff4d4d");
+      const centerY = window.innerHeight * 0.35; 
+      spawnFloatingText(centerX, centerY, "處女膜破了... 💔", "#ff4d4d", 3000, "52px");
     }
   } else if (targetParam5 !== 1) {
     param5HoldStartTime = 0; 
@@ -286,21 +287,35 @@ function setupInteraction() {
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
 
-    // 🌟 嚴格精準打擊邏輯
+    // 🌟 嚴格精準打擊邏輯 + 胖手指寬容判定
     if (isParam7Locked) {
       try {
         const hitX = e.data.global.x;
         const hitY = e.data.global.y;
-        const hitAreas = model.hitTest(hitX, hitY);
 
-        // 嚴格限制：必須點到 Param8 判定區才觸發 (移除容錯機制)
-        if (hitAreas.includes('Param8')) {
+        // 掃描點擊位置周圍半徑 40px 的區域 (解決判定點太小難點的問題)
+        let isHit = false;
+        const offsets = [
+          [0, 0], [-40, 0], [40, 0], [0, -40], [0, 40],
+          [-30, -30], [30, -30], [-30, 30], [30, 30]
+        ];
+
+        for (let [dx, dy] of offsets) {
+          const hitAreas = model.hitTest(hitX + dx, hitY + dy);
+          if (hitAreas.includes('Param8')) {
+            isHit = true;
+            break;
+          }
+        }
+
+        // 嚴格限制：必須點到(或摸到邊緣) Param8 判定區才觸發。徹底移除點擊外圍也能觸發的容錯。
+        if (isHit) {
           isHoldingForParam8 = true;
           
-          // 💖 觸發漂浮文字，並往右上方偏移一點點距離，避免被手指/游標擋住
+          // 💖 觸發漂浮文字，往右上方偏移 (x+30, y-60) 確保不被手指擋住
           const clientX = e.data.originalEvent.clientX || hitX;
           const clientY = e.data.originalEvent.clientY || hitY;
-          spawnFloatingText(clientX + 20, clientY - 50);
+          spawnFloatingText(clientX + 30, clientY - 60, "嗯...❤️", "#ffb3c6", 1500, "28px");
         }
       } catch (err) {
         console.error("HitTest 錯誤:", err);
