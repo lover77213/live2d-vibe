@@ -167,12 +167,12 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
 
   container.appendChild(textEl);
 
-  // 漂浮動畫 (調整 offset 讓文字能完美停留)
+  // 漂浮動畫
   const animation = textEl.animate([
     { transform: 'translate(-50%, -50%)', opacity: 0 },
-    { transform: 'translate(-50%, -70%)', opacity: 1, offset: 0.1 },  // 前 10% 時間浮現
-    { transform: 'translate(-50%, -100%)', opacity: 1, offset: 0.8 }, // 中間 70% 時間懸停展示
-    { transform: 'translate(-50%, -120%)', opacity: 0 }               // 最後 20% 時間漸隱
+    { transform: 'translate(-50%, -70%)', opacity: 1, offset: 0.1 },  
+    { transform: 'translate(-50%, -100%)', opacity: 1, offset: 0.8 }, 
+    { transform: 'translate(-50%, -120%)', opacity: 0 }               
   ], {
     duration: duration, 
     easing: 'ease-out',
@@ -198,17 +198,17 @@ function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
-  // 🌟 彩蛋邏輯 (Param6 觸發時加入超大專屬文字特效)
+  // 🌟 彩蛋邏輯 (Param6 觸發文字)
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
     else if (Date.now() - param5HoldStartTime >= 3000) {
       isParam6Triggered = true;
       targetParam6 = 2; 
       
-      // 觸發 Param6 特效文字，顯示在螢幕中心偏上，放大至 72px，並持續 3000 毫秒 (3秒)
+      // 文字改為「處女膜消失了... 💔」，縮小為 48px
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight * 0.35; 
-      spawnFloatingText(centerX, centerY, "處女膜破了... 💔", "#ff4d4d", 3000, "72px");
+      spawnFloatingText(centerX, centerY, "處女膜消失了... 💔", "#ff4d4d", 3000, "48px");
     }
   } else if (targetParam5 !== 1) {
     param5HoldStartTime = 0; 
@@ -218,12 +218,12 @@ function updateParams() {
   let p8Target = 0.0;
   if (isHoldingForParam8 && isParam7Locked) {
     p8Target = 3.0;
-    targetEyeY = -1.0;     // 眼睛向下看
-    targetMouthForm = -1.0; // 嘴巴表情變換
+    targetEyeY = -1.0;     
+    targetMouthForm = -1.0; 
   } else {
     p8Target = 0.0;
-    targetEyeY = 0.0;       // 恢復正常眼位
-    targetMouthForm = 0.0;  // 恢復正常嘴型
+    targetEyeY = 0.0;       
+    targetMouthForm = 0.0;  
   }
 
   // 平滑更新 Param8
@@ -309,7 +309,7 @@ function setupInteraction() {
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
 
-    // 🌟 嚴格精準打擊 + 廣域矩形掃描 (解決原本物件判定區太小/網格太細的問題)
+    // 🌟 嚴格精準打擊 + 廣域矩形掃描 
     if (isParam7Locked) {
       try {
         const hitX = e.data.global.x;
@@ -318,23 +318,22 @@ function setupInteraction() {
         let isHit = false;
         
         // 矩形範圍掃描：從你點擊的位置為中心，擴大掃描一個 120x120 的矩形區域
-        // 只要這個矩形範圍內「擦到」Param8，就視為成功觸發！
+        // 🌟 這裡把判定區改為 'Param7'
         for (let dx = -60; dx <= 60; dx += 20) {
           for (let dy = -60; dy <= 60; dy += 20) {
             const hitAreas = model.hitTest(hitX + dx, hitY + dy);
-            if (hitAreas.includes('Param8')) {
+            if (hitAreas.includes('Param7')) { // <--- 掃描 Param7 的判定區
               isHit = true;
               break;
             }
           }
-          if (isHit) break; // 掃描到就立刻跳出，節省效能
+          if (isHit) break; 
         }
 
         // 嚴格限制：必須點擊(或包含在矩形內)才觸發
         if (isHit) {
-          isHoldingForParam8 = true;
+          isHoldingForParam8 = true; // 即使是掃到 Param7，依然觸發水球(Param8)和表情的連動
           
-          // 💖 觸發漂浮文字，往右上方偏移 (x+30, y-60) 確保不被手指擋住
           const clientX = e.data.originalEvent.clientX || hitX;
           const clientY = e.data.originalEvent.clientY || hitY;
           spawnFloatingText(clientX + 30, clientY - 60, "嗯...❤️", "#ffb3c6", 1500, "28px");
