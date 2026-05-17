@@ -138,42 +138,42 @@ function createEffectContainer() {
   document.body.appendChild(container);
 }
 
-function spawnFloatingText(x, y) {
+// 支援傳入自訂文字內容與顏色
+function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6") {
   const container = document.getElementById('effect-container');
   if (!container) return;
 
   const textEl = document.createElement('div');
-  textEl.innerText = "嗯...❤️";
+  textEl.innerText = text;
   
-  // 基礎樣式：粉色、粗體、文字陰影確保可見度
+  // 基礎樣式
   textEl.style.cssText = `
     position: absolute;
     left: ${x}px;
     top: ${y}px;
-    color: #ffb3c6; /* 柔和粉紅色 */
+    color: ${color}; 
     font-size: 28px;
     font-weight: bold;
     font-family: sans-serif;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-    transform: translate(-50%, -50%); /* 置中於點擊處 */
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+    transform: translate(-50%, -50%); 
     opacity: 0;
   `;
 
   container.appendChild(textEl);
 
-  // 漂浮動畫 (Web Animations API)
+  // 漂浮動畫
   const animation = textEl.animate([
     { transform: 'translate(-50%, -50%)', opacity: 0 },
-    { transform: 'translate(-50%, -70%)', opacity: 1, offset: 0.2 }, // 快速浮現
-    { transform: 'translate(-50%, -100%)', opacity: 1, offset: 0.7 }, // 緩慢上升
-    { transform: 'translate(-50%, -120%)', opacity: 0 } // 漸隱消失
+    { transform: 'translate(-50%, -70%)', opacity: 1, offset: 0.2 }, 
+    { transform: 'translate(-50%, -100%)', opacity: 1, offset: 0.7 }, 
+    { transform: 'translate(-50%, -120%)', opacity: 0 } 
   ], {
-    duration: 1500, // 播放 1.5 秒
+    duration: 1500, 
     easing: 'ease-out',
     fill: 'forwards'
   });
 
-  // 動畫結束後自動清理 DOM 元素，防止記憶體外洩
   animation.onfinish = () => {
     textEl.remove();
   };
@@ -193,18 +193,23 @@ function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
-  // 彩蛋邏輯
+  // 🌟 彩蛋邏輯 (Param6 觸發時加入文字特效)
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
     else if (Date.now() - param5HoldStartTime >= 3000) {
       isParam6Triggered = true;
       targetParam6 = 2; 
+      
+      // 觸發 Param6 特效文字，顯示在螢幕中心偏上
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight * 0.4; // 偏上方
+      spawnFloatingText(centerX, centerY, "處女膜破了... 💔", "#ff4d4d");
     }
   } else if (targetParam5 !== 1) {
     param5HoldStartTime = 0; 
   }
 
-  // 🌟 Param8 快速插值
+  // Param8 快速插值
   const p8Target = (isHoldingForParam8 && isParam7Locked) ? 3.0 : 0.0;
   currentParam8 = lerp(currentParam8, p8Target, 0.4);
   core.setParameterValueById("Param8", currentParam8);
@@ -281,26 +286,21 @@ function setupInteraction() {
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
 
-    // 🌟 精準打擊 (HitTest) 邏輯
+    // 🌟 嚴格精準打擊邏輯
     if (isParam7Locked) {
       try {
         const hitX = e.data.global.x;
         const hitY = e.data.global.y;
         const hitAreas = model.hitTest(hitX, hitY);
 
+        // 嚴格限制：必須點到 Param8 判定區才觸發 (移除容錯機制)
         if (hitAreas.includes('Param8')) {
           isHoldingForParam8 = true;
-          // 💖 觸發漂浮文字動畫
+          
+          // 💖 觸發漂浮文字，並往右上方偏移一點點距離，避免被手指/游標擋住
           const clientX = e.data.originalEvent.clientX || hitX;
           const clientY = e.data.originalEvent.clientY || hitY;
-          spawnFloatingText(clientX, clientY);
-        } else if (hitAreas.length === 0) {
-          // 容錯機制
-          console.warn("⚠️ 模型尚未設定 HitArea！請建立 'Param8' 判定區。");
-          isHoldingForParam8 = true;
-          const clientX = e.data.originalEvent.clientX || hitX;
-          const clientY = e.data.originalEvent.clientY || hitY;
-          spawnFloatingText(clientX, clientY);
+          spawnFloatingText(clientX + 20, clientY - 50);
         }
       } catch (err) {
         console.error("HitTest 錯誤:", err);
@@ -402,27 +402,25 @@ async function start() {
     const modelPath = "public/model/model.model3.json";
     model = await Live2DModel.from(modelPath, { autoUpdate: true });
 
-    // 🌟 終極防護：安全讀取 PIXI 常數，找不到就給數字預設值
+    // 安全讀取 PIXI 常數
     const textures = model.textures || model.internalModel?.textures || [];
     textures.forEach((tex) => {
       if (tex && tex.baseTexture) {
-        // 安全 Mipmap 設定
         tex.baseTexture.mipmap = (PIXI.MIPMAP_MODES && PIXI.MIPMAP_MODES.ON !== undefined) 
           ? PIXI.MIPMAP_MODES.ON 
-          : 1; // 1 通常代表 ON
+          : 1; 
           
         tex.baseTexture.anisotropicLevel = 16;
         
-        // 安全 Scale Mode 設定
         tex.baseTexture.scaleMode = (PIXI.SCALE_MODES && PIXI.SCALE_MODES.LINEAR !== undefined) 
           ? PIXI.SCALE_MODES.LINEAR 
-          : 1; // 1 通常代表 LINEAR
+          : 1; 
       }
     });
     
     userScaleOffset = 0.5;
     createZoomButtons(); 
-    createEffectContainer(); // 💖 確保特效容器被建立
+    createEffectContainer(); 
 
     window.model = model;
     app.stage.addChild(model);
@@ -449,5 +447,4 @@ async function start() {
   }
 }
 
-// 確保網頁結構完全載入後才啟動
 window.addEventListener('DOMContentLoaded', start);
