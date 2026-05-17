@@ -35,11 +35,12 @@ let lockHistory = [];
 let lastTapTime = 0;
 let pointerDownStartTime = 0; 
 
-// 📊 全網實時計數器狀態
+// 📊 全網實時計數器狀態 (徹底拔除本機暫存，100% 信任雲端)
 let globalOpenCount = 0;
 let hasCountedThisSwipe = false; 
-const COUNTER_NAMESPACE = 'live2d_waifu_project_pure'; // 🌟 全新純淨空間名
-const COUNTER_KEY = 'pussy_open_count'; 
+const COUNTER_NAMESPACE = 'waifu_live2d_project_2026'; // 乾淨無敏感字眼的空間名
+const COUNTER_KEY = 'interactive_clicks'; // 避開 count 等會被擋廣告攔截的字
+const ABACUS_URL = 'https://abacus.jasoncameron.dev';
 
 let userScaleOffset = 0.5; 
 let zoomDirection = 0; 
@@ -55,16 +56,8 @@ let currentPipAlpha = 0;
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
-// 安全讀寫緩存
-function getSafeStorage(key, def) {
-  try { return parseInt(localStorage.getItem(key)) || def; } catch (e) { return def; }
-}
-function setSafeStorage(key, val) {
-  try { localStorage.setItem(key, val); } catch (e) {}
-}
-
 /**
- * 📊 建立與初始化全網計數器 UI (純淨無阻擋 API 版本)
+ * 📊 建立與初始化全網計數器 UI (100% 雲端同步無阻擋版)
  */
 function setupCounter() {
   const counterDiv = document.createElement('div');
@@ -92,54 +85,49 @@ function setupCounter() {
   `;
   document.body.appendChild(counterDiv);
 
-  globalOpenCount = getSafeStorage('localPussyCount', 0);
-  updateCounterUI();
+  counterDiv.innerHTML = `累計被掰穴次數: <span style="color: #ffb3c6; font-size: 24px;">...</span>`;
 
   syncWithCloud();
-  // 🌟 每 5 秒自動同步最新總量，方便快速測試
-  setInterval(syncWithCloud, 5000);
+  // 每 4 秒自動向全網同步一次
+  setInterval(syncWithCloud, 4000);
 }
 
-// 🌟 最單純乾淨的 Fetch 邏輯，絕對不會被手機無痕阻擋
+// 🌟 純淨無痕的 Fetch 邏輯，徹底捨棄舊本地資料，以伺服器為唯一真理
 function syncWithCloud() {
   const ts = Date.now();
-  fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}?_=${ts}`)
+  fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${COUNTER_KEY}?_=${ts}`)
     .then(res => res.json())
     .then(data => {
-      if (data && typeof data.count === 'number') {
-        updateAndSaveCount(data.count);
-      }
-    })
-    .catch(() => { /* 靜默處理，不報錯 */ });
-}
-
-function incrementGlobalCount() {
-  globalOpenCount++;
-  setSafeStorage('localPussyCount', globalOpenCount);
-  updateCounterUI(); 
-  
-  const ts = Date.now();
-  fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}/up?_=${ts}`)
-    .then(res => res.json())
-    .then(data => {
-      if (data && typeof data.count === 'number') {
-        updateAndSaveCount(data.count);
+      if (data && typeof data.value === 'number') {
+        updateCounterUI(data.value);
       }
     })
     .catch(() => {});
 }
 
-// 內部更新計數器與存檔
-function updateAndSaveCount(newCount) {
-  if (newCount > globalOpenCount) {
-    globalOpenCount = newCount;
-    setSafeStorage('localPussyCount', globalOpenCount);
-    updateCounterUI();
-  }
+function incrementGlobalCount() {
+  // 1. 本地直接先加 1，讓 UI 瞬間反應
+  globalOpenCount++;
+  updateCounterUI(globalOpenCount);
+  
+  // 2. 背景發送給伺服器真正 +1
+  const ts = Date.now();
+  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${COUNTER_KEY}?_=${ts}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data && typeof data.value === 'number') {
+        updateCounterUI(data.value);
+      }
+    })
+    .catch(() => {});
 }
 
-// 更新計數器文字與跳動特效
-function updateCounterUI() {
+// 統一的 UI 更新與數值校正邏輯
+function updateCounterUI(serverValue) {
+  if (serverValue > globalOpenCount) {
+    globalOpenCount = serverValue;
+  }
+  
   const counterDiv = document.getElementById('global-counter-ui');
   if (!counterDiv) return;
   
@@ -471,7 +459,7 @@ function updateParams() {
   if (pipContainer) {
     let pipTargetAlpha = 0.0;
     
-    // 🌟 已恢復：長按 1000 毫秒（1秒）才會觸發特寫
+    // 🌟 保留你的長按邏輯：長按 1000 毫秒（1秒）觸發特寫
     if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1000)) {
       pipTargetAlpha = 1.0;
     } 
