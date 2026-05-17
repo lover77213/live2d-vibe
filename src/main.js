@@ -16,7 +16,7 @@ let targetParam5 = -1, currentParam5 = -1;
 let targetParam3 = -1, currentParam3 = -1;    
 let targetParam = -1, currentParam = -1;      
 let targetParam6 = 0, currentParam6 = 0;      
-let currentParam8 = 0; 
+let currentParam8 = 0;             
 let blinkTarget = 1, blinkCurrent = 1;        
 
 // 🔒 鎖定、記憶體與連續操作狀態
@@ -125,6 +125,62 @@ function createZoomButtons() {
 }
 
 /**
+ * 💖 建立漂浮文字特效容器與觸發函數
+ */
+function createEffectContainer() {
+  if (document.getElementById('effect-container')) return;
+  const container = document.createElement('div');
+  container.id = 'effect-container';
+  container.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    pointer-events: none; z-index: 9999; overflow: hidden;
+  `;
+  document.body.appendChild(container);
+}
+
+function spawnFloatingText(x, y) {
+  const container = document.getElementById('effect-container');
+  if (!container) return;
+
+  const textEl = document.createElement('div');
+  textEl.innerText = "嗯...❤️";
+  
+  // 基礎樣式：粉色、粗體、文字陰影確保可見度
+  textEl.style.cssText = `
+    position: absolute;
+    left: ${x}px;
+    top: ${y}px;
+    color: #ffb3c6; /* 柔和粉紅色 */
+    font-size: 28px;
+    font-weight: bold;
+    font-family: sans-serif;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    transform: translate(-50%, -50%); /* 置中於點擊處 */
+    opacity: 0;
+  `;
+
+  container.appendChild(textEl);
+
+  // 漂浮動畫 (Web Animations API)
+  const animation = textEl.animate([
+    { transform: 'translate(-50%, -50%)', opacity: 0 },
+    { transform: 'translate(-50%, -70%)', opacity: 1, offset: 0.2 }, // 快速浮現
+    { transform: 'translate(-50%, -100%)', opacity: 1, offset: 0.7 }, // 緩慢上升
+    { transform: 'translate(-50%, -120%)', opacity: 0 } // 漸隱消失
+  ], {
+    duration: 1500, // 播放 1.5 秒
+    easing: 'ease-out',
+    fill: 'forwards'
+  });
+
+  // 動畫結束後自動清理 DOM 元素，防止記憶體外洩
+  animation.onfinish = () => {
+    textEl.remove();
+  };
+}
+
+
+/**
  * ⚙️ 更新所有 Live2D 參數
  */
 function updateParams() {
@@ -226,9 +282,30 @@ function setupInteraction() {
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
 
-    // 全域點擊觸發
+    // 🌟 恢復精準打擊 (HitTest) 邏輯
     if (isParam7Locked) {
-      isHoldingForParam8 = true;
+      try {
+        const hitX = e.data.global.x;
+        const hitY = e.data.global.y;
+        const hitAreas = model.hitTest(hitX, hitY);
+
+        if (hitAreas.includes('Param8')) {
+          isHoldingForParam8 = true;
+          // 💖 觸發漂浮文字動畫 (傳入客戶端的螢幕點擊座標)
+          const clientX = e.data.originalEvent.clientX || hitX;
+          const clientY = e.data.originalEvent.clientY || hitY;
+          spawnFloatingText(clientX, clientY);
+        } else if (hitAreas.length === 0) {
+          // 容錯機制：如果完全沒設定 HitArea，允許全螢幕觸發並顯示特效
+          console.warn("⚠️ 模型尚未設定 HitArea！請建立 'Param8' 判定區。");
+          isHoldingForParam8 = true;
+          const clientX = e.data.originalEvent.clientX || hitX;
+          const clientY = e.data.originalEvent.clientY || hitY;
+          spawnFloatingText(clientX, clientY);
+        }
+      } catch (err) {
+        console.error("HitTest 錯誤:", err);
+      }
     }
   });
   
@@ -294,20 +371,20 @@ function setupInteraction() {
  */
 async function start() {
   try {
-    // 🌟 核心防白畫面：強制重置頁面 CSS，保證 Canvas 容器具有 100% 絕對尺寸
+    // 核心防白畫面
     document.documentElement.style.width = '100%';
     document.documentElement.style.height = '100%';
     document.body.style.width = '100%';
     document.body.style.height = '100%';
     document.body.style.margin = '0';
-    document.body.style.overflow = 'hidden'; // 修復隱藏捲動軸的語法錯誤
+    document.body.style.overflow = 'hidden'; 
     document.body.style.backgroundColor = 'transparent';
 
     const Live2DModel = PIXI.live2d.Live2DModel;
     Live2DModel.registerTicker(PIXI.Ticker);
 
     app = new PIXI.Application({
-      resizeTo: window, // 綁定 window 大小
+      resizeTo: window, 
       backgroundAlpha: 0,
       antialias: true, 
       resolution: Math.max(window.devicePixelRatio, 2), 
@@ -315,7 +392,6 @@ async function start() {
       powerPreference: 'high-performance',
     });
 
-    // 確保 Canvas 填滿可用空間
     app.view.style.position = "absolute";
     app.view.style.top = "0";
     app.view.style.left = "0";
@@ -324,11 +400,9 @@ async function start() {
     app.view.style.zIndex = "1";
     document.body.appendChild(app.view);
 
-    // 載入模型 (await 會停在這裡直到載入完成)
     const modelPath = "public/model/model.model3.json";
     model = await Live2DModel.from(modelPath, { autoUpdate: true });
 
-    // 🌟 拔除無效的 modelLoaded 監聽，直接在這裡執行載入後的邏輯
     model.internalModel.textures.forEach((tex) => {
       if (tex.baseTexture) {
         tex.baseTexture.mipmap = PIXI.TYPES.MIPMAP_MODES.ON;
@@ -338,7 +412,8 @@ async function start() {
     });
     
     userScaleOffset = 0.5;
-    createZoomButtons(); // 確保按鈕立刻被建立！
+    createZoomButtons(); 
+    createEffectContainer(); // 💖 確保特效容器被建立
 
     window.model = model;
     app.stage.addChild(model);
@@ -348,7 +423,6 @@ async function start() {
     startBlinkLoop();
     app.ticker.add(updateParams);
     
-    // 雙重強制重繪 (Double RAF)
     requestAnimationFrame(() => {
         resize();
         app.render(); 
