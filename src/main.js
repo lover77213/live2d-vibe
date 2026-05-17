@@ -286,9 +286,11 @@ function updatePiPLayout() {
   
   pipRenderTexture.resize(window.innerWidth, window.innerHeight);
   
-  // 設定正方形尺寸 (自適應螢幕，最大 320px)
+  // 🌟 這裡把方框的尺寸直接放大三倍 ( * 3 )
   const isMobile = window.innerWidth < window.innerHeight;
-  const size = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 520);
+  const baseSize = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 520);
+  const size = baseSize * 3; 
+  
   const padding = 25;
   
   // 將畫中畫框框往上移 (避免擋住手部)
@@ -306,13 +308,11 @@ function updatePiPLayout() {
   pipBorder.lineStyle(6, 0xffb3c6, 0.9);
   pipBorder.drawRoundedRect(0, 0, size, size, 20);
   
-  // 200% 放大特寫
+  // 200% 放大特寫 (如果裡面的角色也想跟著放大，可以把這裡的 zoomLevel 調高)
   const zoomLevel = 2.0;
   pipSprite.scale.set(zoomLevel);
   
   // 🌟 動態對焦核心邏輯：確保無論如何縮放都不會跑位
-  // focusYOffset 代表本機座標偏移量。在螢幕座標中，正數是往下。
-  // 改為 +280 精準狙擊下半身 (陰部) 位置！(如果覺得偏上/下，可微調此數值)
   const focusYOffset = 580; 
   const yOffset = focusYOffset * model.scale.y; 
   
@@ -500,7 +500,6 @@ function setupInteraction() {
         }
 
         // 🌟 無縫解除左右鎖定：只要參數退回 -1 (回到中間)，就立刻解除該方向的鎖定
-        // 即便「放開手指」，下一次觸摸螢幕也能直接獲得上下滑動 (脫衣服) 的權限！
         if (targetParam3 === -1) isParam3Locked = false;
         if (targetParam === -1) isParamLocked = false;
       }
