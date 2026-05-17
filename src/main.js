@@ -193,11 +193,11 @@ function createInvisibleHitbox() {
   const hitbox = document.createElement('div');
   hitbox.id = 'param8-invisible-hitbox';
   
-  // 🌟 上移判定區 (Top 從 65% 改到 55%，貼近 Param8 的核心位置)
+  // 🌟 上移判定區至胸部位置 (Top 調整為 38%)
   hitbox.style.cssText = `
     position: fixed;
     left: 50%;
-    top: 55%; 
+    top: 38%; 
     width: 60vw;
     height: 35vh;
     max-width: 400px;
@@ -266,7 +266,6 @@ function updateParams() {
       isParam6Triggered = true;
       targetParam6 = 2; 
       
-      // 🌟 下移文字到胸/腹部 (Y 從 0.35 改到 0.65)，且改回「處女膜破了...💔」
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight * 0.65; 
       spawnFloatingText(centerX, centerY, "處女膜破了...💔", "#ff4d4d", 3000, "48px");
@@ -278,7 +277,6 @@ function updateParams() {
   // 🌟 Param8 與 Param5 的表情連動
   let p8Target = 0.0;
   
-  // 條件放寬：只要有滑動觸發 Param5 (>0) 或是按壓 Param8，就會連動表情
   if ((isHoldingForParam8 && isParam7Locked) || targetParam5 > 0) {
     if (isHoldingForParam8 && isParam7Locked) p8Target = 3.0; // 只有 Param8 觸發水球
     targetEyeY = -1.0;      // 眼睛向下看
@@ -396,18 +394,20 @@ function setupInteraction() {
         }
       }
     } else if (swipeAxis === 'y') {
-      if (diffY > 0) {
-        // 🌟 解除了左右滑動鎖定 (Param/Param3) 的卡死 Bug，現在隨時可以往上滑！
-        if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
-        else targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
-      } else {
-        if (!isParam7Locked) {
-          const down = Math.abs(diffY);
-          if (down < 30) targetParam7 = -1;
-          else if (down < 80) targetParam7 = 0.8;
-          else if (down < 140) targetParam7 = 1.6;
-          else if (down < 200) targetParam7 = 2.4;
-          else targetParam7 = 2.8;
+      // 🌟 核心修正：必須回到中間（沒有鎖定左右）才可以上下滑動！
+      if (!isParam3Locked && !isParamLocked) {
+        if (diffY > 0) {
+          if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+          else targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+        } else {
+          if (!isParam7Locked) {
+            const down = Math.abs(diffY);
+            if (down < 30) targetParam7 = -1;
+            else if (down < 80) targetParam7 = 0.8;
+            else if (down < 140) targetParam7 = 1.6;
+            else if (down < 200) targetParam7 = 2.4;
+            else targetParam7 = 2.8;
+          }
         }
       }
     }
