@@ -417,7 +417,7 @@ function updatePiPLayout() {
       pipLabelText.y = -pipLabelText.height / 2; 
   }
   
-  const fixedAbsoluteZoom = 1.2; 
+  const fixedAbsoluteZoom = 1.1; 
   const currentModelScale = model.scale.y || 1; 
   const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
   
