@@ -111,7 +111,6 @@ function createLoadingUI() {
 async function updateLoadingText(msg) {
   const el = document.getElementById('app-loader-text');
   if (el) el.innerText = msg;
-  // 等待一個 frame 確保文字有畫到螢幕上
   await new Promise(resolve => requestAnimationFrame(resolve));
 }
 
@@ -153,7 +152,6 @@ function setupCounter() {
   `;
   document.body.appendChild(counterDiv);
 
-  // 🌟 名稱更新為：所有玩家總掰穴次數
   counterDiv.innerHTML = `所有玩家總掰穴次數: <span style="color: #ffb3c6; font-size: 24px;">...</span>`;
 
   syncWithCloud();
@@ -195,7 +193,6 @@ function updateCounterUI(serverValue) {
   const counterDiv = document.getElementById('global-counter-ui');
   if (!counterDiv) return;
   
-  // 🌟 名稱更新為：所有玩家總掰穴次數
   counterDiv.innerHTML = `所有玩家總掰穴次數: <span style="color: #ff4d88; font-size: 24px;">${globalOpenCount}</span>`;
   
   counterDiv.style.transform = 'translateX(-50%) scale(1.15)';
@@ -205,12 +202,17 @@ function updateCounterUI(serverValue) {
 }
 
 /**
- * 📏 自動縮放與畫質維持
+ * 📏 自動縮放與畫質維持 (加入 Canvas 畫布強制同步尺寸，防壓扁)
  */
 function resize() {
   if (!model || !app) return;
 
   try {
+    // 🌟 核心修復：強制讓 PIXI 視埠同步為當前網頁的最真實寬高，徹底擊碎壓扁 Bug
+    if (app.renderer && typeof app.renderer.resize === 'function') {
+      app.renderer.resize(window.innerWidth, window.innerHeight);
+    }
+
     const isMobile = window.innerWidth < window.innerHeight;
     const paddingFactor = isMobile ? 0.8 : 1.0; 
     
@@ -723,7 +725,7 @@ function setupInteraction() {
 }
 
 /**
- * 🚀 主啟動函數 (加入分段 Loading 動畫)
+ * 🚀 主啟動函數 (加入分段 Loading 動畫與多重校正防壓扁核心)
  */
 async function start() {
   try {
@@ -806,6 +808,9 @@ async function start() {
     // 5. 確保渲染畫面後關閉 Loading
     await updateLoadingText("準備完成！");
     
+    // 🌟 多重校正 pass 1：準備完成當下立馬拉正尺寸
+    resize();
+
     requestAnimationFrame(() => {
         resize();
         app.render(); 
@@ -813,6 +818,18 @@ async function start() {
             resize();
             // 淡出並移除 Loading 畫面
             setTimeout(hideLoadingUI, 300);
+
+            // 🌟 多重校正 pass 2：在 100 毫秒後，此時手機工具列高度已定型，再次強制拉正，雙重防線！
+            setTimeout(() => {
+              resize();
+              if (app.render) app.render();
+            }, 100);
+
+            // 🌟 多重校正 pass 3：在 300 毫秒後，針對極少數超慢速慢回彈手機做最後保險校正，徹底絕殺壓扁 Bug！
+            setTimeout(() => {
+              resize();
+              if (app.render) app.render();
+            }, 300);
         });
     });
     
