@@ -38,8 +38,8 @@ let pointerDownStartTime = 0;
 // 📊 全網實時計數器狀態 (徹底拔除本機暫存，100% 信任雲端)
 let globalOpenCount = 0;
 let hasCountedThisSwipe = false; 
-const COUNTER_NAMESPACE = 'waifu_live2d_project_2026'; // 乾淨無敏感字眼的空間名
-const COUNTER_KEY = 'interactive_clicks'; // 避開 count 等會被擋廣告攔截的字
+const COUNTER_NAMESPACE = 'waifu_live2d_project_2026'; 
+const COUNTER_KEY = 'interactive_clicks'; 
 const ABACUS_URL = 'https://abacus.jasoncameron.dev';
 
 let userScaleOffset = 0.5; 
@@ -55,6 +55,74 @@ let pipLabelText;
 let currentPipAlpha = 0;
 
 const lerp = (a, b, t) => a + (b - a) * t;
+
+/**
+ * ⏳ 建立全螢幕載入動畫 UI
+ */
+function createLoadingUI() {
+  const loader = document.createElement('div');
+  loader.id = 'app-loader';
+  loader.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: #111111;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    z-index: 99999; transition: opacity 0.5s ease-out;
+  `;
+  
+  // 動畫樣式
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes loader-spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes loader-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.05); }
+    }
+  `;
+  document.head.appendChild(style);
+
+  // 旋轉圈圈
+  const spinner = document.createElement('div');
+  spinner.style.cssText = `
+    width: 60px; height: 60px; border: 6px solid rgba(255, 179, 198, 0.2);
+    border-top-color: #ffb3c6; border-radius: 50%;
+    animation: loader-spin 1s linear infinite; margin-bottom: 25px;
+    box-shadow: 0 0 15px rgba(255, 179, 198, 0.4);
+  `;
+  
+  // 文字提示
+  const text = document.createElement('div');
+  text.id = 'app-loader-text';
+  text.style.cssText = `
+    color: #ffb3c6; font-size: 22px; font-weight: bold; font-family: sans-serif;
+    text-shadow: 0 0 10px rgba(255, 179, 198, 0.6);
+    animation: loader-pulse 2s ease-in-out infinite;
+  `;
+  text.innerText = '準備載入...';
+
+  loader.appendChild(spinner);
+  loader.appendChild(text);
+  document.body.appendChild(loader);
+}
+
+// ⏳ 更新載入文字 (並強制瀏覽器重新渲染畫面)
+async function updateLoadingText(msg) {
+  const el = document.getElementById('app-loader-text');
+  if (el) el.innerText = msg;
+  // 等待一個 frame 確保文字有畫到螢幕上
+  await new Promise(resolve => requestAnimationFrame(resolve));
+}
+
+// ⏳ 移除載入畫面
+function hideLoadingUI() {
+  const el = document.getElementById('app-loader');
+  if (el) {
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 500);
+  }
+}
 
 /**
  * 📊 建立與初始化全網計數器 UI (100% 雲端同步無阻擋版)
@@ -88,11 +156,9 @@ function setupCounter() {
   counterDiv.innerHTML = `累計被掰穴次數: <span style="color: #ffb3c6; font-size: 24px;">...</span>`;
 
   syncWithCloud();
-  // 每 4 秒自動向全網同步一次
   setInterval(syncWithCloud, 4000);
 }
 
-// 🌟 純淨無痕的 Fetch 邏輯，徹底捨棄舊本地資料，以伺服器為唯一真理
 function syncWithCloud() {
   const ts = Date.now();
   fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${COUNTER_KEY}?_=${ts}`)
@@ -106,11 +172,9 @@ function syncWithCloud() {
 }
 
 function incrementGlobalCount() {
-  // 1. 本地直接先加 1，讓 UI 瞬間反應
   globalOpenCount++;
   updateCounterUI(globalOpenCount);
   
-  // 2. 背景發送給伺服器真正 +1
   const ts = Date.now();
   fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${COUNTER_KEY}?_=${ts}`)
     .then(res => res.json())
@@ -122,7 +186,6 @@ function incrementGlobalCount() {
     .catch(() => {});
 }
 
-// 統一的 UI 更新與數值校正邏輯
 function updateCounterUI(serverValue) {
   if (serverValue > globalOpenCount) {
     globalOpenCount = serverValue;
@@ -658,10 +721,14 @@ function setupInteraction() {
 }
 
 /**
- * 🚀 主啟動函數
+ * 🚀 主啟動函數 (加入分段 Loading 動畫)
  */
 async function start() {
   try {
+    // 1. 建立並顯示全螢幕 Loading 動畫
+    createLoadingUI();
+    await updateLoadingText("初始化 WebGL 繪圖引擎...");
+
     document.documentElement.style.width = '100%';
     document.documentElement.style.height = '100%';
     document.body.style.width = '100%';
@@ -690,9 +757,13 @@ async function start() {
     app.view.style.zIndex = "1";
     document.body.appendChild(app.view);
 
+    // 2. 開始下載模型
+    await updateLoadingText("下載與解析 Live2D 模型檔案...");
     const modelPath = "public/model/model.model3.json";
     model = await Live2DModel.from(modelPath, { autoUpdate: true });
 
+    // 3. 處理貼圖材質
+    await updateLoadingText("優化高畫質材質貼圖...");
     const textures = model.textures || model.internalModel?.textures || [];
     textures.forEach((tex) => {
       if (tex && tex.baseTexture) {
@@ -708,6 +779,8 @@ async function start() {
       }
     });
     
+    // 4. 配置互動與介面
+    await updateLoadingText("配置互動與 UI 介面...");
     userScaleOffset = 0.5;
     createZoomButtons(); 
     createEffectContainer(); 
@@ -725,11 +798,16 @@ async function start() {
     startBlinkLoop();
     app.ticker.add(updateParams);
     
+    // 5. 確保渲染畫面後關閉 Loading
+    await updateLoadingText("準備完成！");
+    
     requestAnimationFrame(() => {
         resize();
         app.render(); 
         requestAnimationFrame(() => {
             resize();
+            // 淡出並移除 Loading 畫面
+            setTimeout(hideLoadingUI, 300);
         });
     });
     
@@ -739,6 +817,7 @@ async function start() {
     });
   } catch (err) { 
     console.error("啟動失敗:", err); 
+    await updateLoadingText("載入失敗，請重新整理網頁！");
   }
 }
 
