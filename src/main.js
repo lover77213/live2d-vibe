@@ -38,7 +38,7 @@ let pointerDownStartTime = 0;
 // 📊 全網實時計數器狀態
 let globalOpenCount = 0;
 let hasCountedThisSwipe = false; 
-const COUNTER_NAMESPACE = 'live2d_waifu_project_2025'; // 🌟 換成全新的空間名，確保不與舊快取衝突
+const COUNTER_NAMESPACE = 'live2d_waifu_project_ultimate'; // 🌟 全新專屬空間名
 const COUNTER_KEY = 'pussy_open_count'; 
 
 let userScaleOffset = 0.5; 
@@ -56,7 +56,7 @@ let currentPipAlpha = 0;
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /**
- * 📊 建立與初始化全網計數器 UI (穩定 API 版本)
+ * 📊 建立與初始化全網計數器 UI (雙備援無阻擋 API 版本)
  */
 function setupCounter() {
   const counterDiv = document.createElement('div');
@@ -89,22 +89,37 @@ function setupCounter() {
   if (localCount) globalOpenCount = parseInt(localCount, 10);
   updateCounterUI();
 
-  // 🌟 使用穩定營運的 counterapi.dev，並強制破除快取
+  // 🌟 雙伺服器同步邏輯 (拔除 Headers 避免 CORS 阻擋，單純用時間戳破除快取)
   const syncWithCloud = () => {
-    fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${Date.now()}`, { cache: 'no-store' })
+    const ts = Date.now();
+    // 1. 首選高速計數伺服器
+    fetch(`https://abacus.jsn.cam/get/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${ts}`)
       .then(res => res.json())
       .then(data => {
-        if (data && typeof data.count === 'number') {
-          globalOpenCount = Math.max(globalOpenCount, data.count);
-          localStorage.setItem('localPussyCount', globalOpenCount);
-          updateCounterUI();
-        }
-      }).catch(err => console.log("計數器同步中...", err));
+        if (data && typeof data.value === 'number') updateAndSaveCount(data.value);
+      })
+      .catch(() => {
+        // 2. 備用伺服器
+        fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${ts}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data && typeof data.count === 'number') updateAndSaveCount(data.count);
+          }).catch(() => {});
+      });
   };
 
   syncWithCloud();
   // 每 1 分鐘同步一次最新總量
   setInterval(syncWithCloud, 60000);
+}
+
+// 內部更新計數器與存檔
+function updateAndSaveCount(newCount) {
+  if (newCount > globalOpenCount) {
+    globalOpenCount = newCount;
+    localStorage.setItem('localPussyCount', globalOpenCount);
+    updateCounterUI();
+  }
 }
 
 // 更新計數器文字與跳動特效
@@ -127,16 +142,22 @@ function incrementGlobalCount() {
   localStorage.setItem('localPussyCount', globalOpenCount);
   updateCounterUI(); // 本地立刻更新，無延遲感
 
-  // 🌟 發送至雲端 (+1)，使用 /up 路由
-  fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}/up?t=${Date.now()}`, { cache: 'no-store' })
+  const ts = Date.now();
+  
+  // 🌟 雙備援發送至雲端 (+1)，確保 100% 寫入成功
+  fetch(`https://abacus.jsn.cam/hit/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${ts}`)
     .then(res => res.json())
     .then(data => {
-      if (data && typeof data.count === 'number') {
-        globalOpenCount = Math.max(globalOpenCount, data.count); 
-        localStorage.setItem('localPussyCount', globalOpenCount);
-        updateCounterUI();
-      }
-    }).catch(() => {});
+      if (data && typeof data.value === 'number') updateAndSaveCount(data.value);
+    })
+    .catch(() => {
+      // 失敗時切換至備用伺服器寫入
+      fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}/up?t=${ts}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && typeof data.count === 'number') updateAndSaveCount(data.count);
+        }).catch(() => {});
+    });
 }
 
 /**
@@ -184,7 +205,7 @@ function resize() {
 }
 
 /**
- * 🎨 建立長按縮放按鈕
+ * 🎨 建立長按縮按鈕
  */
 function createZoomButtons() {
   if (document.getElementById('zoom-container')) return; 
@@ -396,7 +417,6 @@ function updatePiPLayout() {
   const isMobile = window.innerWidth < window.innerHeight;
   const baseSize = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 420);
   
-  // 外框尺寸維持 1.35 倍不變
   const size = baseSize * 1.35; 
   const padding = 25;
   
@@ -417,7 +437,6 @@ function updatePiPLayout() {
       pipLabelText.y = -pipLabelText.height / 2; 
   }
   
-  // 🌟 將內部模型的絕對放大倍率再調小 (從 0.85 降到 0.65)，讓局部再縮小一點點
   const fixedAbsoluteZoom = 0.45; 
   const currentModelScale = model.scale.y || 1; 
   const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
@@ -461,7 +480,6 @@ function updateParams() {
   if (pipContainer) {
     let pipTargetAlpha = 0.0;
     
-    // 🌟 只要按住超過 1000 毫秒（1秒）就會觸發特寫
     if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1000)) {
       pipTargetAlpha = 1.0;
     } 
