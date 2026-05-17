@@ -38,8 +38,9 @@ let pointerDownStartTime = 0;
 // 📊 全網實時計數器狀態
 let globalOpenCount = 0;
 let hasCountedThisSwipe = false; 
-const COUNTER_NAMESPACE = 'live2d_waifu_project_v1'; // 🌟 全新空間名
+const COUNTER_NAMESPACE = 'live2d_waifu_project_final'; // 確保全新的乾淨空間
 const COUNTER_KEY = 'pussy_open_count'; 
+const API_URL = `https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}`;
 
 let userScaleOffset = 0.5; 
 let zoomDirection = 0; 
@@ -55,8 +56,16 @@ let currentPipAlpha = 0;
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
+// 安全讀寫緩存，防止極端無痕模式下的報錯
+function getSafeStorage(key, def) {
+  try { return parseInt(localStorage.getItem(key)) || def; } catch (e) { return def; }
+}
+function setSafeStorage(key, val) {
+  try { localStorage.setItem(key, val); } catch (e) {}
+}
+
 /**
- * 📊 建立與初始化全網計數器 UI (雙備援無阻擋 API 版本)
+ * 📊 建立與初始化全網計數器 UI (終極穿透防擋版本)
  */
 function setupCounter() {
   const counterDiv = document.createElement('div');
@@ -84,40 +93,58 @@ function setupCounter() {
   `;
   document.body.appendChild(counterDiv);
 
-  // 優先讀取本地緩存防呆
-  const localCount = localStorage.getItem('localPussyCount');
-  if (localCount) globalOpenCount = parseInt(localCount, 10);
+  globalOpenCount = getSafeStorage('localPussyCount', 0);
   updateCounterUI();
 
-  // 🌟 雙伺服器同步邏輯 (拔除 Headers 避免 CORS 阻擋，單純用時間戳破除快取)
-  const syncWithCloud = () => {
-    const ts = Date.now();
-    // 1. 首選高速計數伺服器 (已修正為正確的真實網址)
-    fetch(`https://abacus.jasoncameron.dev/get/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${ts}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data && typeof data.value === 'number') updateAndSaveCount(data.value);
-      })
-      .catch(() => {
-        // 2. 備用伺服器
-        fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${ts}`)
-          .then(res => res.json())
-          .then(data => {
-            if (data && typeof data.count === 'number') updateAndSaveCount(data.count);
-          }).catch(() => {});
-      });
-  };
-
   syncWithCloud();
-  // 🌟 每 10 秒同步一次最新總量 (方便你雙開無痕與一般視窗測試)
+  // 每 10 秒自動同步最新總量
   setInterval(syncWithCloud, 10000);
+}
+
+// 🌟 穿透防追蹤 (AdBlock/Incognito) 的終極發送邏輯
+function fetchCounter(isUp = false) {
+  const ts = Date.now();
+  const endpoint = isUp ? `${API_URL}/up` : API_URL;
+  const target = `${endpoint}?t=${ts}`;
+  const targetEncoded = encodeURIComponent(target);
+
+  // 路由 1: 透過 corsproxy 偽裝網址，躲避無痕防追蹤
+  fetch(`https://corsproxy.io/?${targetEncoded}`)
+    .then(res => res.json())
+    .then(data => { if (data && data.count !== undefined) updateAndSaveCount(data.count); })
+    .catch(() => {
+      // 路由 2: 透過 allorigins 備用代理穿透
+      fetch(`https://api.allorigins.win/raw?url=${targetEncoded}`)
+        .then(res => res.json())
+        .then(data => { if (data && data.count !== undefined) updateAndSaveCount(data.count); })
+        .catch(() => {
+          // 路由 3: 直連 (防代理全掛的最後底線)
+          fetch(target)
+            .then(res => res.json())
+            .then(data => { if (data && data.count !== undefined) updateAndSaveCount(data.count); })
+            .catch(() => {});
+        });
+    });
+}
+
+function syncWithCloud() {
+  fetchCounter(false);
+}
+
+function incrementGlobalCount() {
+  globalOpenCount++;
+  setSafeStorage('localPussyCount', globalOpenCount);
+  updateCounterUI(); 
+  
+  // 送出 +1 請求，一樣走穿透代理
+  fetchCounter(true);
 }
 
 // 內部更新計數器與存檔
 function updateAndSaveCount(newCount) {
   if (newCount > globalOpenCount) {
     globalOpenCount = newCount;
-    localStorage.setItem('localPussyCount', globalOpenCount);
+    setSafeStorage('localPussyCount', globalOpenCount);
     updateCounterUI();
   }
 }
@@ -129,35 +156,10 @@ function updateCounterUI() {
   
   counterDiv.innerHTML = `累計被掰穴次數: <span style="color: #ff4d88; font-size: 24px;">${globalOpenCount}</span>`;
   
-  // 觸發放大彈跳特效
   counterDiv.style.transform = 'translateX(-50%) scale(1.15)';
   setTimeout(() => {
     if (counterDiv) counterDiv.style.transform = 'translateX(-50%) scale(1)';
   }, 150);
-}
-
-// 觸發增加計數
-function incrementGlobalCount() {
-  globalOpenCount++;
-  localStorage.setItem('localPussyCount', globalOpenCount);
-  updateCounterUI(); // 本地立刻更新，無延遲感
-
-  const ts = Date.now();
-  
-  // 🌟 雙備援發送至雲端 (+1)，確保 100% 寫入成功
-  fetch(`https://abacus.jasoncameron.dev/hit/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${ts}`)
-    .then(res => res.json())
-    .then(data => {
-      if (data && typeof data.value === 'number') updateAndSaveCount(data.value);
-    })
-    .catch(() => {
-      // 失敗時切換至備用伺服器寫入
-      fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}/up?t=${ts}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data && typeof data.count === 'number') updateAndSaveCount(data.count);
-        }).catch(() => {});
-    });
 }
 
 /**
@@ -480,7 +482,8 @@ function updateParams() {
   if (pipContainer) {
     let pipTargetAlpha = 0.0;
     
-    if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1000)) {
+    // 🌟 只要按住超過 300 毫秒（0.3秒）就會觸發特寫
+    if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 300)) {
       pipTargetAlpha = 1.0;
     } 
 
