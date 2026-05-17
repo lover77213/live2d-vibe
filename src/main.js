@@ -33,11 +33,10 @@ let targetParam5 = -1, currentParam5 = -1;
 let targetParam3 = -1, currentParam3 = -1;    
 let targetParam = -1, currentParam = -1;      
 let targetParam6 = 0, currentParam6 = 0;      
-let currentParam8 = 0; // 🌟 移除多餘進度變數，直接操作當前值              
+let currentParam8 = 0; // 直接操作當前值，拔除累贅進度
 let blinkTarget = 1, blinkCurrent = 1;        
-let breathTimer = 0;    // 🌟 呼吸專用計時器
 
-// 🔒 鎖定、記憶體與計時狀態
+// 🔒 鎖定、記憶體與連續操作狀態
 let isParam2Locked = false;
 let isParam7Locked = false;
 let isParam3Locked = false; 
@@ -49,26 +48,22 @@ let lockHistory = [];
 let lastTapTime = 0;
 
 let userScaleOffset = 0.5; 
-let zoomLock = false; 
+let zoomDirection = 0; // 🌟 縮放方向狀態：1 (放大), -1 (縮小), 0 (停止)
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /**
- * 📏 自動縮放與畫質維持 (🌟 縮小 20% + 終極防裁切 Fit 邏輯)
+ * 📏 自動縮放與畫質維持 (極速版，移除耗能迴圈)
  */
 function resize() {
   if (!model) return;
 
   try {
-    // 🌟 統一縮小係數 0.8 (即縮小 20%)，確保左右預留安全邊距 (Safe Area)
     const paddingFactor = 0.8; 
-    
     const scaleByWidth = (window.innerWidth * 0.00055) * paddingFactor; 
     const scaleByHeight = (window.innerHeight * 0.0004) * paddingFactor;
 
-    // 取寬與高中較小的值，確保模型絕對不被裁切
     let baseScale = Math.min(scaleByWidth, scaleByHeight);
-
     let finalScale = baseScale * userScaleOffset;
 
     if (finalScale > 2.0 || finalScale < 0.001 || isNaN(finalScale)) {
@@ -79,16 +74,16 @@ function resize() {
     model.anchor.set(0.5, 0.5);
     model.x = window.innerWidth / 2;
     model.y = window.innerHeight / 2;
-
-    model.internalModel.textures.forEach(tex => {
-        tex.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
-        tex.baseTexture.anisotropicLevel = 16;
-    });
+    
+    // ⚠️ 已經把耗效能的 texture 更新移到 modelLoaded 裡面了，確保長按縮放極度流暢
   } catch (err) {
     console.error("Resize 計算失敗:", err);
   }
 }
 
+/**
+ * 🎨 建立長按縮放按鈕
+ */
 function createZoomButtons() {
   const existing = document.getElementById('zoom-container');
   if (existing) existing.remove();
@@ -115,17 +110,17 @@ function createZoomButtons() {
   const btnMinus = document.createElement('button');
   btnMinus.innerText = '－'; btnMinus.style.cssText = btnStyle;
 
-  const handleZoom = (amount) => {
-    if (zoomLock) return;
-    zoomLock = true;
-    userScaleOffset = parseFloat((userScaleOffset + amount).toFixed(2));
-    userScaleOffset = Math.max(0.1, Math.min(userScaleOffset, 5.0));
-    resize();
-    setTimeout(() => { zoomLock = false; }, 400);
-  };
+  // 🌟 長按邏輯：按下時改變方向，放開或移出時停止
+  const setZoom = (dir) => (e) => { e.preventDefault(); zoomDirection = dir; };
+  const stopZoom = (e) => { e.preventDefault(); zoomDirection = 0; };
 
-  btnPlus.onpointerdown = (e) => { e.preventDefault(); e.stopPropagation(); handleZoom(0.05); };
-  btnMinus.onpointerdown = (e) => { e.preventDefault(); e.stopPropagation(); handleZoom(-0.05); };
+  btnPlus.addEventListener('pointerdown', setZoom(1));
+  btnPlus.addEventListener('pointerup', stopZoom);
+  btnPlus.addEventListener('pointerleave', stopZoom);
+
+  btnMinus.addEventListener('pointerdown', setZoom(-1));
+  btnMinus.addEventListener('pointerup', stopZoom);
+  btnMinus.addEventListener('pointerleave', stopZoom);
 
   container.appendChild(btnPlus);
   container.appendChild(btnMinus);
@@ -136,6 +131,13 @@ function createZoomButtons() {
  * ⚙️ 更新所有 Live2D 參數
  */
 function updateParams() {
+  // 🌟 長按縮放連續判定 (60fps 更新)
+  if (zoomDirection !== 0) {
+    userScaleOffset += zoomDirection * 0.015; // 調整這裡改變縮放速度
+    userScaleOffset = Math.max(0.1, Math.min(userScaleOffset, 5.0));
+    resize();
+  }
+
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
@@ -150,27 +152,20 @@ function updateParams() {
     param5HoldStartTime = 0; 
   }
 
-  // 🌟 Param8 水球阻尼感 (捨棄僵硬的數學曲線，改用真正的物理漸進阻尼)
+  // 🌟 Param8 拔除阻尼感！使用直接且快速的插值
+  // 直接將目標設定為 3.0 或 0.0
   const p8Target = (isHoldingForParam8 && isParam7Locked) ? 3.0 : 0.0;
-  
-  // 阻尼係數設定為 0.15。這會產生越接近目標、速度越輕柔的「頂級絲滑感」，完全消除煞車鈍感。
-  currentParam8 += (p8Target - currentParam8) * 0.15 * app.ticker.deltaTime;
-  
-  // 嚴格數值夾斷：防止溢位引發的黑幀
-  currentParam8 = Math.max(0.0, Math.min(3.0, currentParam8));
+  // 使用 0.4 的極速過渡，肉眼幾乎看不到拖泥帶水的中間過渡，只有乾脆的形變
+  currentParam8 = lerp(currentParam8, p8Target, 0.4);
   core.setParameterValueById("Param8", currentParam8);
 
-
-  // 🌟 真・無縫呼吸 (修復長時間播放造成的浮點數精度卡頓)
-  // 將每一幀的微小時間加上去，2.5 是呼吸速度
-  breathTimer += (app.ticker.elapsedMS / 1000.0) * 2.5; 
-  
-  // 🌟 核心修復：強制將時間限制在一個完美的圓周內 (2*PI)
-  // 這樣數字永遠不會過大，保證掛機一天一夜呼吸也絕對不卡頓！
-  breathTimer = breathTimer % (Math.PI * 2); 
-  
-  // 計算完美正弦波並映射到 0.0 ~ 1.0
-  const breathValue = (Math.sin(breathTimer) * 0.5) + 0.5;
+  // 🌟 真・完美無縫呼吸 (絕對物理時間，100% 防卡頓)
+  // 使用 performance.now() 獲取絕對時間，並以 3000 毫秒 (3秒) 作為一個呼吸週期
+  const breathCycle = 3000;
+  // 利用取餘數 (%) 確保進度永遠在 0.0 ~ 1.0 之間完美循環，防溢位且不吃 FPS
+  const breathProgress = (performance.now() % breathCycle) / breathCycle;
+  // 轉換為標準 Sine 波浪 (0.0 ~ 1.0)
+  const breathValue = (Math.sin(breathProgress * Math.PI * 2) * 0.5) + 0.5;
   core.setParameterValueById("ParamBreath", breathValue);
 
 
@@ -178,7 +173,7 @@ function updateParams() {
   if (targetParam3 === 1) targetParam = -1;
   if (targetParam === 1) targetParam3 = -1;
 
-  // 參數平滑更新
+  // 其他參數平滑更新
   currentClothes = lerp(currentClothes, targetClothes, 0.15);
   core.setParameterValueById("Param2", currentClothes);
 
@@ -310,6 +305,7 @@ async function start() {
     model = await Live2DModel.from(modelPath, { autoUpdate: true });
 
     model.on('modelLoaded', () => {
+      // 🌟 將耗效能的貼圖設定移入 Loaded，確保畫面縮放效能
       model.internalModel.textures.forEach((tex) => {
         if (tex.baseTexture) {
           tex.baseTexture.mipmap = PIXI.TYPES.MIPMAP_MODES.ON;
