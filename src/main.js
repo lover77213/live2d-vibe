@@ -63,7 +63,7 @@ function setupCounter() {
   counterDiv.id = 'global-counter-ui';
   counterDiv.style.cssText = `
     position: fixed; 
-    bottom: 140px; /* 🌟 往上移，避開手機底邊與縮放按鈕 */
+    bottom: 140px; 
     left: 50%; 
     transform: translateX(-50%);
     background: rgba(0, 0, 0, 0.65);
@@ -397,6 +397,7 @@ function updatePiPLayout() {
   const isMobile = window.innerWidth < window.innerHeight;
   const baseSize = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 420);
   
+  // 外框尺寸維持 1.35 倍不變
   const size = baseSize * 1.35; 
   const padding = 25;
   
@@ -417,7 +418,8 @@ function updatePiPLayout() {
       pipLabelText.y = -pipLabelText.height / 2; 
   }
   
-  const fixedAbsoluteZoom = 1.1; 
+  // 🌟 將內部模型的絕對放大倍率稍微調小 (從 1.1 降到 0.95)，讓局部看起來更小一點
+  const fixedAbsoluteZoom = 0.95; 
   const currentModelScale = model.scale.y || 1; 
   const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
   
@@ -460,7 +462,8 @@ function updateParams() {
   if (pipContainer) {
     let pipTargetAlpha = 0.0;
     
-    if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1500)) {
+    // 🌟 只要按住超過 1000 毫秒（1秒）就會觸發特寫
+    if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1000)) {
       pipTargetAlpha = 1.0;
     } 
 
