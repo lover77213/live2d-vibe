@@ -38,8 +38,8 @@ let pointerDownStartTime = 0;
 // 📊 全網實時計數器狀態
 let globalOpenCount = 0;
 let hasCountedThisSwipe = false; 
-const COUNTER_NAMESPACE = 'live2d_waifu_project_8899'; // 專屬空間名
-const COUNTER_KEY = 'pussy_open_count'; // 專屬鍵值
+const COUNTER_NAMESPACE = 'live2d_waifu_project_2025'; // 🌟 換成全新的空間名，確保不與舊快取衝突
+const COUNTER_KEY = 'pussy_open_count'; 
 
 let userScaleOffset = 0.5; 
 let zoomDirection = 0; 
@@ -56,7 +56,7 @@ let currentPipAlpha = 0;
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /**
- * 📊 建立與初始化全網計數器 UI (更穩定的 API 版本)
+ * 📊 建立與初始化全網計數器 UI (穩定 API 版本)
  */
 function setupCounter() {
   const counterDiv = document.createElement('div');
@@ -89,19 +89,17 @@ function setupCounter() {
   if (localCount) globalOpenCount = parseInt(localCount, 10);
   updateCounterUI();
 
-  // 🌟 使用更穩定的 KV 儲存服務 (以 JSONBin 或類似免金鑰公開 API 替代)
-  // 這裡使用 countapi.xyz 的替代方案，確保無快取
+  // 🌟 使用穩定營運的 counterapi.dev，並強制破除快取
   const syncWithCloud = () => {
-    // 加上時間戳，保證每次請求都是全新的
-    fetch(`https://api.countapi.xyz/get/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${Date.now()}`)
+    fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${Date.now()}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
-        if (data && typeof data.value === 'number') {
-          globalOpenCount = Math.max(globalOpenCount, data.value);
+        if (data && typeof data.count === 'number') {
+          globalOpenCount = Math.max(globalOpenCount, data.count);
           localStorage.setItem('localPussyCount', globalOpenCount);
           updateCounterUI();
         }
-      }).catch(() => { /* 靜默處理網路錯誤 */ });
+      }).catch(err => console.log("計數器同步中...", err));
   };
 
   syncWithCloud();
@@ -129,12 +127,12 @@ function incrementGlobalCount() {
   localStorage.setItem('localPussyCount', globalOpenCount);
   updateCounterUI(); // 本地立刻更新，無延遲感
 
-  // 🌟 發送至雲端 (+1)
-  fetch(`https://api.countapi.xyz/hit/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${Date.now()}`)
+  // 🌟 發送至雲端 (+1)，使用 /up 路由
+  fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}/up?t=${Date.now()}`, { cache: 'no-store' })
     .then(res => res.json())
     .then(data => {
-      if (data && typeof data.value === 'number') {
-        globalOpenCount = Math.max(globalOpenCount, data.value); 
+      if (data && typeof data.count === 'number') {
+        globalOpenCount = Math.max(globalOpenCount, data.count); 
         localStorage.setItem('localPussyCount', globalOpenCount);
         updateCounterUI();
       }
@@ -398,7 +396,7 @@ function updatePiPLayout() {
   const isMobile = window.innerWidth < window.innerHeight;
   const baseSize = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 420);
   
-  // 外框尺寸維持不變
+  // 外框尺寸維持 1.35 倍不變
   const size = baseSize * 1.35; 
   const padding = 25;
   
@@ -419,8 +417,8 @@ function updatePiPLayout() {
       pipLabelText.y = -pipLabelText.height / 2; 
   }
   
-  // 🌟 將內部模型的絕對放大倍率再調小 (從 0.95 降到 0.85)，讓局部縮小一點點
-  const fixedAbsoluteZoom = 0.55; 
+  // 🌟 將內部模型的絕對放大倍率再調小 (從 0.85 降到 0.65)，讓局部再縮小一點點
+  const fixedAbsoluteZoom = 0.65; 
   const currentModelScale = model.scale.y || 1; 
   const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
   
