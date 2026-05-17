@@ -288,7 +288,7 @@ function updatePiPLayout() {
   
   // 設定正方形尺寸 (自適應螢幕，最大 320px)
   const isMobile = window.innerWidth < window.innerHeight;
-  const size = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 320);
+  const size = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 520);
   const padding = 25;
   
   // 將畫中畫框框往上移 (避免擋住手部)
