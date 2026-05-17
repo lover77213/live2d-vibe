@@ -65,7 +65,7 @@ function resize() {
     const scaleByWidth = window.innerWidth * 0.0008; 
     const scaleByHeight = window.innerHeight * 0.0004;
 
-    // 🌟 核心：永遠取最小的那個值。這樣能保證不管螢幕多窄多長，模型絕對能完整顯示在畫面內！
+    // 🌟 核心：永遠取最小的那個值，保證模型絕對完整顯示！
     let baseScale = Math.min(scaleByWidth, scaleByHeight);
 
     let finalScale = baseScale * userScaleOffset;
@@ -149,16 +149,16 @@ function updateParams() {
     param5HoldStartTime = 0; 
   }
 
-  // 🌟 Param8 終極絲滑水球動畫 (防黑幀 + 加速)
+  // 🌟 Param8 終極絲滑水球動畫 (防黑幀 + 加速回彈)
   const dt = app.ticker.elapsedMS / 1000.0;
   
   if (isHoldingForParam8 && isParam7Locked) {
-    param8Progress += 3.5 * dt; // 加快擠壓速度
+    param8Progress += 3.5 * dt; // 擠壓速度加快
   } else {
-    param8Progress -= 4.0 * dt; // 加快回彈速度
+    param8Progress -= 4.5 * dt; // 回彈速度加快，展現 Q 彈感
   }
 
-  // 🌟 嚴格數值夾斷：保證進度絕對在 0.0 到 1.0 之間，防止黑幀溢位
+  // 🌟 絕對防溢位夾斷：保證數值乾淨，消滅黑幀
   param8Progress = Math.max(0.0, Math.min(1.0, param8Progress));
 
   // SmootherStep 曲線公式：最頂級的平滑過渡
@@ -167,11 +167,11 @@ function updateParams() {
   currentParam8 = easeT * 3.0; // 映射到 0~3
   core.setParameterValueById("Param8", currentParam8);
 
-  // 🌟 呼吸完美循環 (大範圍 + 無縫)
-  // 使用單一的正弦波，乘上 1.8 控制速度。
-  breathTimer += dt * 1.8; 
-  // Math.sin 會產生 -1 到 1 的波浪。將其除以 2 再加 0.5，精準映射到 0.0 ~ 1.0 之間
-  const breathValue = (Math.sin(breathTimer) / 2.0) + 0.5;
+  // 🌟 真・完美循環呼吸 (絕不卡頓)
+  // 單一純淨的波浪，乘上 2.0 稍微加快一點呼吸節奏。
+  breathTimer += dt * 2.0; 
+  // Math.cos 完美映射到 0.0 ~ 1.0 之間
+  const breathValue = (Math.cos(breathTimer) * 0.5) + 0.5;
   core.setParameterValueById("ParamBreath", breathValue);
 
   // 🌟 強制左右互斥
