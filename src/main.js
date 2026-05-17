@@ -63,7 +63,7 @@ function setupCounter() {
   counterDiv.id = 'global-counter-ui';
   counterDiv.style.cssText = `
     position: fixed; 
-    bottom: 30px; 
+    bottom: 140px; /* 🌟 往上移，避開手機底邊與縮放按鈕 */
     left: 50%; 
     transform: translateX(-50%);
     background: rgba(0, 0, 0, 0.65);
@@ -84,18 +84,19 @@ function setupCounter() {
   `;
   document.body.appendChild(counterDiv);
 
-  // 優先讀取本地緩存
+  // 優先讀取本地緩存防呆
   const localCount = localStorage.getItem('localPussyCount');
   if (localCount) globalOpenCount = parseInt(localCount, 10);
   updateCounterUI();
 
-  // 背景非同步向 API 獲取全網最新數據 (不阻擋主程式)
+  // 背景非同步向 API 獲取全網最新數據
   const syncWithCloud = () => {
-    fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}`)
+    // 🌟 加入 cache: 'no-store' 與時間戳，強制破解瀏覽器快取，確保看到別人刷的次數
+    fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}?t=${Date.now()}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
-        if (data && typeof data.count === 'number' && data.count > globalOpenCount) {
-          globalOpenCount = data.count;
+        if (data && typeof data.count === 'number') {
+          globalOpenCount = Math.max(globalOpenCount, data.count);
           localStorage.setItem('localPussyCount', globalOpenCount);
           updateCounterUI();
         }
@@ -127,12 +128,12 @@ function incrementGlobalCount() {
   localStorage.setItem('localPussyCount', globalOpenCount);
   updateCounterUI(); // 本地立刻更新，無延遲感
 
-  // 背景發送至雲端
-  fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}/up`)
+  // 🌟 背景發送至雲端 (同樣加入防快取機制)
+  fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}/up?t=${Date.now()}`, { cache: 'no-store' })
     .then(res => res.json())
     .then(data => {
-      if (data && typeof data.count === 'number' && data.count > globalOpenCount) {
-        globalOpenCount = data.count; 
+      if (data && typeof data.count === 'number') {
+        globalOpenCount = Math.max(globalOpenCount, data.count); 
         localStorage.setItem('localPussyCount', globalOpenCount);
         updateCounterUI();
       }
@@ -389,7 +390,6 @@ function setupPiP() {
 function updatePiPLayout() {
   if (!pipContainer || !pipRenderTexture || !model) return;
   
-  // 避免無效的 resize 導致警告
   if (window.innerWidth > 0 && window.innerHeight > 0) {
     pipRenderTexture.resize(window.innerWidth, window.innerHeight);
   }
