@@ -291,9 +291,9 @@ function updatePiPLayout() {
   const size = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 320);
   const padding = 25;
   
-  // 🌟 將畫中畫框框往上移一點 (避免擋住手部)
+  // 將畫中畫框框往上移 (避免擋住手部)
   pipContainer.x = window.innerWidth - size - padding;
-  pipContainer.y = window.innerHeight * 0.3; // 從 50% 移到 30% 高度
+  pipContainer.y = window.innerHeight * 0.3; 
   
   // 圓角遮罩
   pipMask.clear();
@@ -310,9 +310,12 @@ function updatePiPLayout() {
   const zoomLevel = 2.0;
   pipSprite.scale.set(zoomLevel);
   
-  // 🌟 動態對焦核心邏輯：根據模型目前的縮放與 Y 座標，動態計算 Param5 (胸部) 的相對位置
-  // yOffset 是調整對焦點的關鍵值，數值越負，對焦點越高。
-  const yOffset = -150 * model.scale.y; 
+  // 🌟 動態對焦核心邏輯：確保無論如何縮放都不會跑位
+  // focusYOffset 代表本機座標偏移量。數值越負，鏡頭越往上抬。
+  // 將其大幅上調至 -450，以確保特寫精準鎖定在上方物件上。
+  // 如果你想微調，只需改這個數字就好 (例如改成 -550 會更高)
+  const focusYOffset = -450; 
+  const yOffset = focusYOffset * model.scale.y; 
   
   const focusX = model.x;
   const focusY = model.y + yOffset;
@@ -491,17 +494,16 @@ function setupInteraction() {
         if (diffX > 0) {
           targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1);
           targetParam = -1; 
-          if (targetParam3 === -1) {
-              isParam3Locked = false;
-          }
         } else {
           const moveLeft = Math.abs(diffX);
           targetParam = moveLeft < 40 ? -1 : (moveLeft < 100 ? 0 : 1);
           targetParam3 = -1;
-          if (targetParam === -1) {
-              isParamLocked = false;
-          }
         }
+
+        // 🌟 無縫解除左右鎖定：只要參數退回 -1 (回到中間)，就立刻解除該方向的鎖定
+        // 即便「放開手指」，也能立刻在下一次觸摸時直接取得上下滑動的權限！
+        if (targetParam3 === -1) isParam3Locked = false;
+        if (targetParam === -1) isParamLocked = false;
       }
     } else if (swipeAxis === 'y') {
       // 🌟 嚴格十字鎖定
@@ -535,6 +537,8 @@ function setupInteraction() {
     if (targetParam === 1 && !isParamLocked) { isParamLocked = true; lockHistory.push('Param'); }
 
     targetParam5 = -1;
+    
+    // 鬆開手時，確保未鎖定的參數自動歸零，讓你可以自由切換滑動軸
     if (!isParam3Locked) targetParam3 = -1;
     if (!isParamLocked) targetParam = -1; 
   });
