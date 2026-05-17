@@ -38,9 +38,8 @@ let pointerDownStartTime = 0;
 // 📊 全網實時計數器狀態
 let globalOpenCount = 0;
 let hasCountedThisSwipe = false; 
-const COUNTER_NAMESPACE = 'live2d_waifu_project_final'; // 確保全新的乾淨空間
+const COUNTER_NAMESPACE = 'live2d_waifu_project_pure'; // 🌟 全新純淨空間名
 const COUNTER_KEY = 'pussy_open_count'; 
-const API_URL = `https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}`;
 
 let userScaleOffset = 0.5; 
 let zoomDirection = 0; 
@@ -56,7 +55,7 @@ let currentPipAlpha = 0;
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
-// 安全讀寫緩存，防止極端無痕模式下的報錯
+// 安全讀寫緩存
 function getSafeStorage(key, def) {
   try { return parseInt(localStorage.getItem(key)) || def; } catch (e) { return def; }
 }
@@ -65,7 +64,7 @@ function setSafeStorage(key, val) {
 }
 
 /**
- * 📊 建立與初始化全網計數器 UI (終極穿透防擋版本)
+ * 📊 建立與初始化全網計數器 UI (純淨無阻擋 API 版本)
  */
 function setupCounter() {
   const counterDiv = document.createElement('div');
@@ -97,38 +96,21 @@ function setupCounter() {
   updateCounterUI();
 
   syncWithCloud();
-  // 每 10 秒自動同步最新總量
-  setInterval(syncWithCloud, 10000);
+  // 🌟 每 5 秒自動同步最新總量，方便快速測試
+  setInterval(syncWithCloud, 5000);
 }
 
-// 🌟 穿透防追蹤 (AdBlock/Incognito) 的終極發送邏輯
-function fetchCounter(isUp = false) {
-  const ts = Date.now();
-  const endpoint = isUp ? `${API_URL}/up` : API_URL;
-  const target = `${endpoint}?t=${ts}`;
-  const targetEncoded = encodeURIComponent(target);
-
-  // 路由 1: 透過 corsproxy 偽裝網址，躲避無痕防追蹤
-  fetch(`https://corsproxy.io/?${targetEncoded}`)
-    .then(res => res.json())
-    .then(data => { if (data && data.count !== undefined) updateAndSaveCount(data.count); })
-    .catch(() => {
-      // 路由 2: 透過 allorigins 備用代理穿透
-      fetch(`https://api.allorigins.win/raw?url=${targetEncoded}`)
-        .then(res => res.json())
-        .then(data => { if (data && data.count !== undefined) updateAndSaveCount(data.count); })
-        .catch(() => {
-          // 路由 3: 直連 (防代理全掛的最後底線)
-          fetch(target)
-            .then(res => res.json())
-            .then(data => { if (data && data.count !== undefined) updateAndSaveCount(data.count); })
-            .catch(() => {});
-        });
-    });
-}
-
+// 🌟 最單純乾淨的 Fetch 邏輯，絕對不會被手機無痕阻擋
 function syncWithCloud() {
-  fetchCounter(false);
+  const ts = Date.now();
+  fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}?_=${ts}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data && typeof data.count === 'number') {
+        updateAndSaveCount(data.count);
+      }
+    })
+    .catch(() => { /* 靜默處理，不報錯 */ });
 }
 
 function incrementGlobalCount() {
@@ -136,8 +118,15 @@ function incrementGlobalCount() {
   setSafeStorage('localPussyCount', globalOpenCount);
   updateCounterUI(); 
   
-  // 送出 +1 請求，一樣走穿透代理
-  fetchCounter(true);
+  const ts = Date.now();
+  fetch(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}/up?_=${ts}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data && typeof data.count === 'number') {
+        updateAndSaveCount(data.count);
+      }
+    })
+    .catch(() => {});
 }
 
 // 內部更新計數器與存檔
@@ -207,7 +196,7 @@ function resize() {
 }
 
 /**
- * 🎨 建立長按縮按鈕
+ * 🎨 建立長按縮放按鈕
  */
 function createZoomButtons() {
   if (document.getElementById('zoom-container')) return; 
@@ -482,8 +471,8 @@ function updateParams() {
   if (pipContainer) {
     let pipTargetAlpha = 0.0;
     
-    // 🌟 只要按住超過 300 毫秒（0.3秒）就會觸發特寫
-    if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 300)) {
+    // 🌟 已恢復：長按 1000 毫秒（1秒）才會觸發特寫
+    if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1000)) {
       pipTargetAlpha = 1.0;
     } 
 
