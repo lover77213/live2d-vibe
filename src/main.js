@@ -16,6 +16,7 @@ app.view.style.left = "0";
 app.view.style.zIndex = "1";
 document.body.appendChild(app.view);
 
+// 從全域變數抓取 Live2D 模組
 const Live2DModel = PIXI.live2d.Live2DModel;
 Live2DModel.registerTicker(PIXI.Ticker);
 
@@ -33,13 +34,15 @@ let targetParam3 = -1, currentParam3 = -1;
 let targetParam = -1, currentParam = -1;      
 let targetParam6 = 0, currentParam6 = 0;      
 let currentParam8 = 0;                        
-let param8Progress = 0; // 用於平滑的內部進度 (0.0 ~ 1.0)
+let param8Progress = 0; // 🌟 Param8 的純淨內部進度 (0.0 ~ 1.0)
 let blinkTarget = 1, blinkCurrent = 1;        
-let breathTimer = 0;    // 🌟 原生渲染同步呼吸計時器
+let breathTimer = 0;    // 🌟 呼吸專用計時器
 
 // 🔒 鎖定、記憶體與計時狀態
-let isParam2Locked = false, isParam7Locked = false;
-let isParam3Locked = false, isParamLocked = false;  
+let isParam2Locked = false;
+let isParam7Locked = false;
+let isParam3Locked = false; 
+let isParamLocked = false;  
 let isParam6Triggered = false; 
 let param5HoldStartTime = 0;   
 let isHoldingForParam8 = false; 
@@ -61,7 +64,7 @@ function resize() {
     let baseScale;
 
     if (window.innerWidth < window.innerHeight) {
-      // 📱 手機端 (直式)：以寬度為基準，避免裁切
+      // 📱 手機端 (直式)：以寬度為基準，並稍微縮小避免貼邊
       baseScale = window.innerWidth * 0.00085; 
     } else {
       // 💻 電腦端 (橫式)：以高度為基準
@@ -83,7 +86,9 @@ function resize() {
         tex.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
         tex.baseTexture.anisotropicLevel = 16;
     });
-  } catch (err) { console.error("Resize 計算失敗:", err); }
+  } catch (err) {
+    console.error("Resize 計算失敗:", err);
+  }
 }
 
 function createZoomButtons() {
@@ -147,22 +152,32 @@ function updateParams() {
     param5HoldStartTime = 0; 
   }
 
-  // 🌟 Param8 雙重平滑疊化水球擠壓 (徹底消除鈍感)
-  const targetProgress = (isHoldingForParam8 && isParam7Locked) ? 1.0 : 0.0;
+  // 🌟 Param8 終極絲滑水球動畫 (使用 SmootherStep 演算法)
+  // 取得與幀率獨立的增量時間 (秒)
+  const dt = app.ticker.elapsedMS / 1000.0;
   
-  // 第一重：進度平滑追蹤 (控制整體速度，0.1讓它有剛好的物理慣性)
-  param8Progress = lerp(param8Progress, targetProgress, 0.1);
-  
-  // 第二重：SmoothStep S曲線 (讓頭尾柔順，中段加速)
-  const easeT = param8Progress * param8Progress * (3.0 - 2.0 * param8Progress);
-  currentParam8 = easeT * 3.0; 
+  if (isHoldingForParam8 && isParam7Locked) {
+    // 擠壓速度：數值越大，充滿 1.0 的時間越短 (2.5 代表 0.4 秒擠滿)
+    param8Progress += 2.5 * dt; 
+    if (param8Progress > 1.0) param8Progress = 1.0;
+  } else {
+    // 回彈速度：稍微快一點 (3.3 代表 0.3 秒回彈)
+    param8Progress -= 3.3 * dt; 
+    if (param8Progress < 0.0) param8Progress = 0.0;
+  }
+
+  // SmootherStep 曲線公式 (6t^5 - 15t^4 + 10t^3)：比一般 S 曲線更極致的平滑
+  const t = param8Progress;
+  const easeT = t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+  currentParam8 = easeT * 3.0; // 將 0~1 的曲線映射到 0~3 參數值
   core.setParameterValueById("Param8", currentParam8);
 
-  // 🌟 原生渲染同步呼吸 (解決所有卡頓與機械感)
-  // 使用 ticker.elapsedMS 確保呼吸永遠跟著畫面影格走，永不掉幀
-  breathTimer += app.ticker.elapsedMS / 1000.0;
-  // 柔和的雙波疊加
-  const breathValue = (Math.sin(breathTimer * 1.5) + Math.sin(breathTimer * 0.7) * 0.4 + 1.4) / 2.8; 
+  // 🌟 真・無縫循環呼吸
+  // 使用單一餘弦波，確保起伏永遠一致，絕不卡頓。
+  // 1.5 是呼吸速度，可調整。
+  breathTimer += dt * 1.5; 
+  // Math.cos 產生 -1 到 1 的波浪。 (Math.cos() * 0.5 + 0.5) 將其完美轉為 0.0 ~ 1.0
+  const breathValue = (Math.cos(breathTimer) * 0.5) + 0.5;
   core.setParameterValueById("ParamBreath", breathValue);
 
   // 🌟 強制左右互斥
