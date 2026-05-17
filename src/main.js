@@ -33,7 +33,7 @@ let targetParam5 = -1, currentParam5 = -1;
 let targetParam3 = -1, currentParam3 = -1;    
 let targetParam = -1, currentParam = -1;      
 let targetParam6 = 0, currentParam6 = 0;      
-let currentParam8 = 0;             
+let currentParam8 = 0; 
 let blinkTarget = 1, blinkCurrent = 1;        
 
 // 🔒 鎖定、記憶體與連續操作狀態
@@ -48,12 +48,12 @@ let lockHistory = [];
 let lastTapTime = 0;
 
 let userScaleOffset = 0.5; 
-let zoomDirection = 0; // 🌟 縮放方向狀態：1 (放大), -1 (縮小), 0 (停止)
+let zoomDirection = 0; // 縮放方向狀態：1 (放大), -1 (縮小), 0 (停止)
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /**
- * 📏 自動縮放與畫質維持 (修復：電腦版不變，手機版才縮小 20%)
+ * 📏 自動縮放與畫質維持
  */
 function resize() {
   if (!model) return;
@@ -62,7 +62,7 @@ function resize() {
     // 判斷是否為直式螢幕 (手機)
     const isMobile = window.innerWidth < window.innerHeight;
     
-    // 🌟 手機縮小 20% 防裁切 (0.8)，電腦維持 1.0
+    // 手機縮小 20% 防裁切 (0.8)，電腦維持 1.0
     const paddingFactor = isMobile ? 0.8 : 1.0; 
     
     const scaleByWidth = (window.innerWidth * 0.00055) * paddingFactor; 
@@ -79,17 +79,29 @@ function resize() {
     model.anchor.set(0.5, 0.5);
     model.x = window.innerWidth / 2;
     model.y = window.innerHeight / 2;
+
+    // 🌟 動態更新按鈕大小 (解決手機網址列縮放導致按鈕消失的問題)
+    const btnPlus = document.getElementById('btn-zoom-plus');
+    const btnMinus = document.getElementById('btn-zoom-minus');
+    
+    if (btnPlus && btnMinus) {
+      const btnSize = isMobile ? '97.5px' : '65px'; 
+      const fontSize = isMobile ? '52.5px' : '35px'; 
+      
+      btnPlus.style.width = btnSize; btnPlus.style.height = btnSize; btnPlus.style.fontSize = fontSize;
+      btnMinus.style.width = btnSize; btnMinus.style.height = btnSize; btnMinus.style.fontSize = fontSize;
+    }
+
   } catch (err) {
     console.error("Resize 計算失敗:", err);
   }
 }
 
 /**
- * 🎨 建立長按縮放按鈕 (修復：手機版按鈕放大 50%)
+ * 🎨 建立長按縮放按鈕 (只建立一次，防止 DOM 重繪消失)
  */
 function createZoomButtons() {
-  const existing = document.getElementById('zoom-container');
-  if (existing) existing.remove();
+  if (document.getElementById('zoom-container')) return; // 🌟 確保只建立一次
 
   const container = document.createElement('div');
   container.id = 'zoom-container';
@@ -98,37 +110,36 @@ function createZoomButtons() {
     display: flex; flex-direction: column; gap: 20px; z-index: 10000;
   `;
 
-  // 🌟 裝置偵測：如果是手機，按鈕尺寸放大 1.5 倍
-  const isMobile = window.innerWidth < window.innerHeight;
-  const btnSize = isMobile ? '97.5px' : '65px'; // 65 * 1.5 = 97.5
-  const fontSize = isMobile ? '52.5px' : '35px'; // 35 * 1.5 = 52.5
-
   const btnStyle = `
-    width: ${btnSize}; height: ${btnSize}; border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.8);
-    background: rgba(0, 0, 0, 0.7); color: white;
-    font-size: ${fontSize}; font-weight: bold; cursor: pointer;
+    border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.8);
+    background: rgba(0, 0, 0, 0.7); color: white; font-weight: bold; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     user-select: none; touch-action: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
   `;
 
   const btnPlus = document.createElement('button');
-  btnPlus.innerText = '＋'; btnPlus.style.cssText = btnStyle;
+  btnPlus.id = 'btn-zoom-plus';
+  btnPlus.innerText = '＋'; 
+  btnPlus.style.cssText = btnStyle;
 
   const btnMinus = document.createElement('button');
-  btnMinus.innerText = '－'; btnMinus.style.cssText = btnStyle;
+  btnMinus.id = 'btn-zoom-minus';
+  btnMinus.innerText = '－'; 
+  btnMinus.style.cssText = btnStyle;
 
   // 長按邏輯
   const setZoom = (dir) => (e) => { e.preventDefault(); zoomDirection = dir; };
   const stopZoom = (e) => { e.preventDefault(); zoomDirection = 0; };
 
+  // 綁定完整的手指互動事件，防止操作卡死
   btnPlus.addEventListener('pointerdown', setZoom(1));
-  btnPlus.addEventListener('pointerup', stopZoom);
-  btnPlus.addEventListener('pointerleave', stopZoom);
-
   btnMinus.addEventListener('pointerdown', setZoom(-1));
-  btnMinus.addEventListener('pointerup', stopZoom);
-  btnMinus.addEventListener('pointerleave', stopZoom);
+
+  const stopEvents = ['pointerup', 'pointerleave', 'pointercancel', 'pointerout'];
+  stopEvents.forEach(evt => {
+    btnPlus.addEventListener(evt, stopZoom);
+    btnMinus.addEventListener(evt, stopZoom);
+  });
 
   container.appendChild(btnPlus);
   container.appendChild(btnMinus);
@@ -165,12 +176,9 @@ function updateParams() {
   currentParam8 = lerp(currentParam8, p8Target, 0.4);
   core.setParameterValueById("Param8", currentParam8);
 
-  // 🌟 真・完美獨立呼吸 (解決操作干擾卡頓)
-  // 捨棄與 ticker 綁定的增量時間，直接使用 Date.now() 除以速度常數
-  // 這樣呼吸頻率與畫面渲染率完全脫鉤，就算滑動時 FPS 下降，呼吸波浪依然連續
+  // 真・完美獨立呼吸
   const breathValue = (Math.sin(Date.now() / 400.0) * 0.5) + 0.5;
   core.setParameterValueById("ParamBreath", breathValue);
-
 
   // 強制左右互斥
   if (targetParam3 === 1) targetParam = -1;
@@ -240,7 +248,17 @@ function setupInteraction() {
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
 
-    if (isParam7Locked) isHoldingForParam8 = true;
+    // 🌟 精準打擊：呼叫 Live2D HitTest
+    if (isParam7Locked) {
+      // 取得點擊處的判定區名稱陣列
+      const hitAreas = model.hitTest(e.data.global.x, e.data.global.y);
+      
+      // 如果點擊部位包含 'Param8'，才允許蓄力
+      // (⚠️ 注意：確保你的 Live2D 模型中，有將該判定區命名為 'Param8')
+      if (hitAreas.includes('Param8')) {
+        isHoldingForParam8 = true;
+      }
+    }
   });
   
   window.addEventListener('pointermove', (e) => {
@@ -248,6 +266,7 @@ function setupInteraction() {
     const diffX = e.clientX - startX; 
     const diffY = startY - e.clientY; 
     
+    // 防手抖容錯 (35px)
     if (!swipeAxis && (Math.abs(diffX) > 35 || Math.abs(diffY) > 35)) {
       swipeAxis = Math.abs(diffX) > Math.abs(diffY) ? 'x' : 'y';
       isHoldingForParam8 = false; 
@@ -315,7 +334,7 @@ async function start() {
       });
       userScaleOffset = 0.5;
       
-      // 確保按鈕尺寸根據初始載入時的裝置狀態設定正確
+      // 確保按鈕被成功掛載
       createZoomButtons(); 
       setTimeout(resize, 300);
     });
@@ -328,12 +347,8 @@ async function start() {
     startBlinkLoop();
     app.ticker.add(updateParams);
     
-    resize();
-    window.addEventListener("resize", () => {
-        resize();
-        // 螢幕旋轉或改變大小時，重新計算按鈕大小
-        createZoomButtons();
-    });
+    // 取消舊版會導致 DOM 重建的邏輯，統一由 resize 控制
+    window.addEventListener("resize", resize);
   } catch (err) { console.error("啟動失敗:", err); }
 }
 
