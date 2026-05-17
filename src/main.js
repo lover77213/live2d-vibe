@@ -302,7 +302,7 @@ function updatePiPLayout() {
   pipBorder.lineStyle(6, 0xffb3c6, 0.9);
   pipBorder.drawRoundedRect(0, 0, size, size, 20);
   
-  const fixedAbsoluteZoom = 1.7; 
+  const fixedAbsoluteZoom = 1.5; 
   const currentModelScale = model.scale.y; 
   const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
   
