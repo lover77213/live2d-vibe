@@ -218,7 +218,7 @@ function setupCounter() {
   updateCounterLayout(); 
   triggerPageView();
   syncWithCloud();
-  setInterval(syncWithCloud, 3000); // 縮短為每 3 秒對齊一次
+  setInterval(syncWithCloud, 3000); 
 }
 
 function updateCounterLayout() {
@@ -308,12 +308,14 @@ function createTreatmentUI() {
     opacity: 0; color: #ffffff; font-family: sans-serif; pointer-events: auto; user-select: none;
   `;
 
+  // 🌟 將「⚠️ 腫脹太嚴重了...」的提示語寫入控制台最下方
   div.innerHTML = `
     <div style="font-weight: 900; color: #ffb3c6; font-size: 15px; text-shadow: 0 0 8px rgba(255,179,198,0.6); letter-spacing: 1px;">🩹 陰部外翻腫脹治療控制台</div>
     <div style="display: flex; gap: 16px;">
       <button id="btn-treat-open" style="background: linear-gradient(135deg, #ff4d88, #ff85a2); border: none; color: white; padding: 10px 22px; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 12px rgba(255,77,136,0.35); transition: transform 0.1s; font-size: 14px;">👐 掰開</button>
       <button id="btn-treat-medicine" style="background: #555555; border: none; color: white; padding: 10px 22px; border-radius: 12px; cursor: not-allowed; font-weight: bold; opacity: 0.5; transition: all 0.2s; font-size: 14px;">🧴 擦藥</button>
     </div>
+    <div style="font-size: 12px; color: #ffcc00; font-weight: bold; margin-top: 2px; text-shadow: 0 0 6px rgba(0,0,0,0.8); letter-spacing: 0.5px;">⚠️ 腫脹太嚴重了，必須先按下「掰開」才能擦藥！</div>
   `;
   document.body.appendChild(div);
 
@@ -332,7 +334,7 @@ function createTreatmentUI() {
     e.stopPropagation();
     
     if (targetParam14 < 1.0) {
-      spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "⚠️ 腫脹太嚴重了！必須先按下「掰開」才能擦藥！", "#ffcc00", 1800, "24px");
+      spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "⚠️ 必須先按下「掰開」才能擦藥！", "#ffcc00", 1800, "24px");
       return;
     }
 
@@ -345,7 +347,6 @@ function createTreatmentUI() {
 function showRewardModal() {
   if (document.getElementById('reward-modal-ui')) return;
 
-  // 🛡️ 開啟全域防護鎖定，強力中斷背景處女膜破裂的計算
   isRewardModalOpen = true; 
   targetParam5 = -1; 
   param5HoldStartTime = 0; 
@@ -388,7 +389,7 @@ function showRewardModal() {
     modal.style.opacity = '0';
     setTimeout(() => {
         modal.remove();
-        isRewardModalOpen = false; // 🔓 關閉圖片後解除全域鎖定
+        isRewardModalOpen = false; 
     }, 500);
   });
 }
@@ -403,7 +404,6 @@ function triggerPageView() {
   });
 }
 
-// 🌟 真實時同步伺服器
 function syncWithCloud() {
   const dailyClicksKey = `interactive_clicks_${getTaiwanDateString()}`;
   const dailyViewsKey = `site_views_${getTaiwanDateString()}`;
@@ -421,7 +421,6 @@ function syncWithCloud() {
 
     const isIdle = (Date.now() - lastTapTime) > 3000;
 
-    // 若閒置超過 3 秒，允許數值向下平滑修正以完美吻合伺服器；若正在點擊，則只取最大值。
     if (tVal !== -1) globalTotalCount = isIdle ? tVal : Math.max(globalTotalCount, tVal);
     if (dVal !== -1) globalDailyCount = isIdle ? dVal : Math.max(globalDailyCount, dVal);
     if (tvVal !== -1) globalViewsTotal = isIdle ? tvVal : Math.max(globalViewsTotal, tvVal);
@@ -430,7 +429,7 @@ function syncWithCloud() {
 }
 
 function handleGlobalDoubleTap(clientX, clientY) {
-  if (isRewardModalOpen) return; // 防護：圖開著不處理雙擊
+  if (isRewardModalOpen) return; 
 
   const currentTime = Date.now();
   if (currentTime - lastTapTime < 300) {
@@ -467,7 +466,6 @@ function handleGlobalDoubleTap(clientX, clientY) {
   lastTapTime = currentTime;
 }
 
-// 🌟 改寫：觸發特效並獲取精確回傳值
 function incrementGlobalCount() {
   globalTotalCount++;
   globalDailyCount++;
@@ -578,7 +576,6 @@ function createZoomButtons() {
     transition: transform 0.1s, box-shadow 0.2s;
   `;
 
-  // 🌟 IG 作者連結按鈕 (Instagram 風格漸層)
   const btnIg = document.createElement('button');
   btnIg.id = 'btn-ig-link';
   btnIg.innerText = 'IG';
@@ -595,7 +592,6 @@ function createZoomButtons() {
   btnIg.addEventListener('mouseenter', () => btnIg.style.transform = 'scale(1.1)');
   btnIg.addEventListener('mouseleave', () => btnIg.style.transform = 'scale(1)');
 
-  // 🌟 特寫 (PiP) 開關按鈕
   const btnPip = document.createElement('button');
   btnPip.id = 'btn-pip-toggle';
   btnPip.innerText = '🔍';
@@ -618,7 +614,6 @@ function createZoomButtons() {
   btnPip.addEventListener('mouseenter', () => btnPip.style.transform = 'scale(1.1)');
   btnPip.addEventListener('mouseleave', () => btnPip.style.transform = 'scale(1.1)');
 
-  // 🌟 永久福利庫按鈕
   const btn18 = document.createElement('button');
   btn18.id = 'btn-reward-gallery';
   btn18.innerText = '18+';
@@ -678,7 +673,6 @@ function createZoomButtons() {
     btnMinus.addEventListener(evt, stopZoom);
   });
 
-  // 加入順序：18+ -> IG -> 特寫🔍 -> x2 -> ＋ -> －
   container.appendChild(btn18); 
   container.appendChild(btnIg);
   container.appendChild(btnPip); 
@@ -757,7 +751,13 @@ function createInvisibleHitbox() {
   `;
 
   hitbox.addEventListener('pointerdown', (e) => {
-    if (isRewardModalOpen) return; // 🛡️ 防護：圖開著不允許點擊打擊框
+    if (isRewardModalOpen) return;
+
+    // 🛡️ 腫脹鎖定：外翻時禁止打擊互動
+    if (targetParam14 >= 0.5) {
+      spawnFloatingText(e.clientX, e.clientY - 30, "⚠️ 腫脹嚴重，請先治療！", "#ffcc00", 1500, "24px");
+      return; 
+    }
 
     if (isParam7Locked && targetParam9 === 1) {
       isOnModel = true;
@@ -845,7 +845,6 @@ function updatePiPLayout() {
 }
 
 function updateParams() {
-  // 🌟 午夜自動歸零偵測：如果使用者掛機跨越 24:00，畫面也會馬上同步歸零，並紀錄新的一天
   const currentDate = getTaiwanDateString();
   if (currentDate !== lastSyncedDate) {
     globalDailyCount = 0;
@@ -853,7 +852,7 @@ function updateParams() {
     globalViewsDaily = 0;
     displayedViewsDaily = 0;
     lastSyncedDate = currentDate;
-    triggerPageView(); // 觸發新一天的一次造訪
+    triggerPageView(); 
   }
 
   if (zoomDirection !== 0) {
@@ -867,7 +866,6 @@ function updateParams() {
     hitbox.style.display = (isParam7Locked && targetParam9 === 1) ? 'block' : 'none';
   }
 
-  // 🌟 雙向平滑修正計數器 (Lerp Counter) - 能平滑地對齊伺服器被降落的數字
   if (isCounterInitialized) {
     const lerpCounter = (disp, target) => {
       if (disp < target) return disp + Math.max(1, Math.floor((target - disp) * 0.08));
@@ -919,7 +917,12 @@ function updateParams() {
     if (targetParam14 === 0) {
       swipeCounterForSwelling++;
       if (swipeCounterForSwelling >= 15) {
+        // 🌟 腫脹瞬間：強制解除並鎖定目前的掰穴與抽插動作
         targetParam14 = 0.5; 
+        targetParam5 = -1; // 強制中斷抽插
+        targetParam7 = -1; // 強制中斷掰穴
+        isParam7Locked = false;
+        isHoldingForParam8 = false;
         spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.5, "小穴被你掰到外翻腫起來了！", "#ff3366", 5000, "32px");
       }
     }
@@ -1045,7 +1048,7 @@ function updateParams() {
   currentParam14 = lerp(currentParam14, targetParam14, 0.15);
   core.setParameterValueById("Param14", currentParam14);
 
-  // 🛡️ 處女膜破裂判定：確保沒有被阻斷 (param5HoldStartTime 不為 0) 才允許破裂
+  // 🛡️ 處女膜破裂判定
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
     else if (Date.now() - param5HoldStartTime >= 3000) {
@@ -1153,7 +1156,7 @@ function setupInteraction() {
   app.view.style.touchAction = "none";
 
   window.addEventListener('pointerdown', (e) => {
-    if (isRewardModalOpen) return; // 🛡️ 防護：圖開著不允許點擊
+    if (isRewardModalOpen) return; 
 
     if (e.target && e.target.closest('#zoom-container')) return;
     if (e.target && e.target.closest('#character-tag-ui')) return; 
@@ -1169,7 +1172,7 @@ function setupInteraction() {
   model.buttonMode = true; 
 
   model.on('pointerdown', (e) => {
-    if (isRewardModalOpen) return; // 🛡️ 防護：圖開著不允許點擊模型
+    if (isRewardModalOpen) return; 
 
     isOnModel = true;
     startX = e.data.originalEvent.clientX || e.data.global.x; 
@@ -1180,7 +1183,7 @@ function setupInteraction() {
   });
   
   window.addEventListener('pointermove', (e) => {
-    if (isRewardModalOpen) return; // 🛡️ 防護：圖開著不允許滑動計算
+    if (isRewardModalOpen) return; 
 
     if (!isOnModel) return;
     const diffX = e.clientX - startX; 
@@ -1255,8 +1258,18 @@ function setupInteraction() {
     } else if (swipeAxis === 'y') {
       if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
         if (diffY > 0) { 
-          if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
-          else {
+          if (isParam2Locked) {
+            // 🛡️ 腫脹鎖定：禁止抽插 (Swipe Down)
+            if (targetParam14 >= 0.5) {
+              if (!swipeActionTriggered) {
+                spawnFloatingText(e.clientX, e.clientY, "⚠️ 腫脹嚴重，請先點擊控制台治療！", "#ffcc00", 1500, "24px");
+                swipeActionTriggered = true;
+              }
+              targetParam5 = -1;
+            } else {
+              targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+            }
+          } else {
             if (targetParam10 === 1) {
               targetClothes = 1;
             } else {
@@ -1271,12 +1284,21 @@ function setupInteraction() {
           }
         } else {
           if (!isParam7Locked) {
-            const down = Math.abs(diffY);
-            if (down < 30) targetParam7 = -1;
-            else if (down < 80) targetParam7 = 0.8;
-            else if (down < 140) targetParam7 = 1.6;
-            else if (down < 200) targetParam7 = 2.4;
-            else targetParam7 = 2.8;
+            // 🛡️ 腫脹鎖定：禁止掰開 (Swipe Up)
+            if (targetParam14 >= 0.5) {
+              if (!swipeActionTriggered) {
+                spawnFloatingText(e.clientX, e.clientY, "⚠️ 腫脹嚴重，請先點擊控制台治療！", "#ffcc00", 1500, "24px");
+                swipeActionTriggered = true;
+              }
+              targetParam7 = -1;
+            } else {
+              const down = Math.abs(diffY);
+              if (down < 30) targetParam7 = -1;
+              else if (down < 80) targetParam7 = 0.8;
+              else if (down < 140) targetParam7 = 1.6;
+              else if (down < 200) targetParam7 = 2.4;
+              else targetParam7 = 2.8;
+            }
           }
         }
       }
@@ -1284,7 +1306,7 @@ function setupInteraction() {
   });
   
   window.addEventListener('pointerup', () => { 
-    if (isRewardModalOpen) return; // 🛡️ 防護：圖開著不允許結算
+    if (isRewardModalOpen) return; 
 
     if (!isOnModel) return;
     isOnModel = false; 
