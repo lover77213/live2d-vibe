@@ -13,6 +13,7 @@ let swipeAxis = null;
 let targetParam9 = 0, currentParam9 = 0; // 大腿狀態 (0=關閉, 1=打開)
 let targetParam10 = 0, currentParam10 = 0; // 內褲狀態 (0=穿著, 1=脫除)
 let targetParam11 = 0, currentParam11 = 0; // 次級互動參數 (0=隱藏, 1=絲滑顯示)
+let targetParam12 = 0, currentParam12 = 0; // 🌟 液體流出參數 (0=無, 1=絲滑流出且不消失)
 let targetClothes = -1, currentClothes = -1;  
 let targetParam7 = -1, currentParam7 = -1;    
 let targetParam5 = -1, currentParam5 = -1;    
@@ -41,6 +42,7 @@ let lastExecutionTime = 0; // 🌟 核心防禦：防止多圖層事件冒泡導
 let pointerDownStartTime = 0; 
 let swipeActionTriggered = false; // 確保單次滑動手勢僅觸發單一階段變更
 let legsWereOpenAtStart = false;  // 記錄每次觸碰開始時大腿的開合狀態，建立手勢隔離防禦網
+let localSwipeCount = 0;          // 🌟 紀錄本機掰穴次數，用來觸發液體流出
 
 // 📊 全網實時計數器狀態 (徹底拔除本機暫存，100% 信任雲端與台灣時間結算)
 let globalTotalCount = 0;
@@ -207,7 +209,7 @@ function syncWithCloud() {
 
       if (serverSavedDate !== currentDate) {
         Promise.all([
-          fetch(`${ABACURL_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`).then(r => r.json()),
+          fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`).then(r => r.json()),
           fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?_=${ts}`).then(r => r.json())
         ]).then(([dailyData, dailyViewsData]) => {
             const expiredDailyValue = (dailyData && dailyData.value) ? dailyData.value : 0;
@@ -291,7 +293,6 @@ function updateCounterUI(serverTotal, serverDaily, serverViewsTotal, serverViews
 function handleGlobalDoubleTap(clientX, clientY) {
   const currentTime = Date.now();
   if (currentTime - lastTapTime < 300) {
-    // 💡 防止多個重疊元件同時接收到點擊，在 50ms 內進行重置鎖定避免二次扣除
     if (currentTime - lastExecutionTime > 50) {
       lastExecutionTime = currentTime;
 
@@ -497,7 +498,6 @@ function createInvisibleHitbox() {
   `;
 
   hitbox.addEventListener('pointerdown', (e) => {
-    // 🌟 呼叫全域整合式雙擊控制引擎
     handleGlobalDoubleTap(e.clientX, e.clientY);
 
     if (isParam7Locked && targetParam9 === 1) {
@@ -650,9 +650,15 @@ function updateParams() {
     }
   }
 
+  // 🌟 核心功能修改：全網計數器與液體流出累加觸發判定
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
     incrementGlobalCount(); 
+    
+    localSwipeCount++;
+    if (localSwipeCount > 5) {
+      targetParam12 = 1; // 🔓 超過 5 次，觸發液體流出目標（永不歸零）
+    }
   }
 
   if (pipContainer) {
@@ -689,6 +695,10 @@ function updateParams() {
   let p11Speed = (targetParam9 === 1) ? 0.45 : 0.15;
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
+
+  // 🌟 核心功能修改：Param12 動態插值控制 (以 0.02 速度極致緩慢絲滑流出)
+  currentParam12 = lerp(currentParam12, targetParam12, 0.02);
+  core.setParameterValueById("Param12", currentParam12);
 
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
@@ -800,7 +810,7 @@ function startEyeLookLoop() {
 function setupInteraction() {
   app.view.style.touchAction = "none";
 
-  // 🌟 核心修正：讓 app.view 監聽全螢幕雙擊，實現無死角還原機制
+  // 全螢幕點擊核心代理：雙擊螢幕任何地方均可精準響應階梯還原鏈
   app.view.addEventListener('pointerdown', (e) => {
     handleGlobalDoubleTap(e.clientX, e.clientY);
   });
