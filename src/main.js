@@ -338,7 +338,7 @@ function createTreatmentUI() {
 
     targetParam14 = 0;             
     swipeCounterForSwelling = 0;    
-    spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "精準擦藥治療成功，陰部恢復正常原狀 ✨", "#a1c4fd", 2000, "26px");
+    spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "擦藥治療成功，私處恢復原狀 ✨", "#a1c4fd", 2000, "26px");
   });
 }
 
@@ -463,10 +463,10 @@ function handleGlobalDoubleTap(clientX, clientY) {
           targetParam10 = 0;
           targetClothes = -1; 
           isParam2Locked = false;
-          spawnFloatingText(clientX, clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
+          spawnFloatingText(clientX, clientY, "穿回內褲...", "#ffb3c6", 1500, "28px");
         } else if (targetParam9 === 1 && targetParam10 === 0) {
           targetParam9 = 0;
-          spawnFloatingText(clientX, clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
+          spawnFloatingText(clientX, clientY, "大腿合上了...", "#ffb3c6", 1500, "28px");
         } else if (targetParam11 === 1) {
           targetParam11 = 0;
           spawnFloatingText(clientX, clientY, "收回絲襪參數...✨", "#ffb3c6", 1500, "28px");
@@ -474,7 +474,7 @@ function handleGlobalDoubleTap(clientX, clientY) {
           targetParam10 = 0;
           targetClothes = -1; 
           isParam2Locked = false;
-          spawnFloatingText(clientX, clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
+          spawnFloatingText(clientX, clientY, "穿回內褲...", "#ffb3c6", 1500, "28px");
         }
       }
     }
@@ -753,7 +753,7 @@ function triggerClimaxEvents(x, y) {
   }
   if (param8PressCount === 25) {
     hasTriggeredParam13Liquid = true;
-    spawnFloatingText(x, y + 40, "潮吹高潮！大量愛液狂噴...💧💧", "#00e5ff", 2500, "32px");
+    spawnFloatingText(x, y + 40, "受到刺激又流出來了...💧", "#00e5ff", 2500, "32px");
   }
   
   if (param8PressCount === 30 && !sessionRewardShown) {
@@ -1224,7 +1224,7 @@ function setupInteraction() {
           targetParam3 = -1;
           targetParam = -1;
           swipeActionTriggered = true;
-          spawnFloatingText(e.clientX, e.clientY, "把腿掰開了... ❤️", "#ffb3c6", 1800, "28px");
+          spawnFloatingText(e.clientX, e.clientY, "把腿掰開了... ", "#ffb3c6", 1800, "28px");
         } 
         else if (swipeAxis === 'y' && !swipeActionTriggered) {
           if (diffY > 40) {
@@ -1262,7 +1262,7 @@ function setupInteraction() {
         if (Math.abs(diffX) > 40) {
           targetParam9 = 0;
           swipeActionTriggered = true;
-          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
+          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...", "#ffb3c6", 1500, "28px");
         }
       } 
       else if (targetParam10 === 0 && targetClothes === -1 && !isParam2Locked) { 
