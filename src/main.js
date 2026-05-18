@@ -438,7 +438,7 @@ function createInvisibleHitbox() {
           targetParam10 = 0;
           targetClothes = -1; 
           isParam2Locked = false;
-          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
+          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...", "#ffb3c6", 1500, "28px");
         }
       }
     }
@@ -743,7 +743,7 @@ function setupInteraction() {
         // 完全解鎖時的雙擊階梯還原反向鏈
         if (targetParam9 === 1) {
           targetParam9 = 0;
-          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
+          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...", "#ffb3c6", 1500, "28px");
         } else if (targetParam11 === 1) {
           targetParam11 = 0;
           spawnFloatingText(e.clientX, e.clientY, "收回絲襪參數...✨", "#ffb3c6", 1500, "28px");
@@ -796,7 +796,7 @@ function setupInteraction() {
           targetParam = -1;
           
           swipeActionTriggered = true;
-          spawnFloatingText(e.clientX, e.clientY, "把腿掰開了...❤️ (解鎖玩法)", "#ffb3c6", 1800, "28px");
+          spawnFloatingText(e.clientX, e.clientY, "把腿掰開了... (解鎖玩法)", "#ffb3c6", 1800, "28px");
         } 
         // 2. 縱向滑動：內褲與 Param11 階梯式多段控制核心
         else if (swipeAxis === 'y' && !swipeActionTriggered) {
@@ -806,11 +806,11 @@ function setupInteraction() {
               targetParam10 = 1;
               targetClothes = 1; 
               swipeActionTriggered = true; 
-              spawnFloatingText(e.clientX, e.clientY, "內褲被脫掉了...👙", "#ff69b4", 1800, "28px");
+              spawnFloatingText(e.clientX, e.clientY, "內褲被脫掉了...", "#ff69b4", 1800, "28px");
             } else if (targetParam10 === 1 && targetParam11 === 0) {
               targetParam11 = 1;
               swipeActionTriggered = true;
-              spawnFloatingText(e.clientX, e.clientY, "絲滑露出...✨", "#ffb3c6", 1800, "28px");
+              spawnFloatingText(e.clientX, e.clientY, "不要看...", "#ffb3c6", 1800, "28px");
             }
           } 
           // ⬇️ 向下滑動機制
@@ -818,13 +818,13 @@ function setupInteraction() {
             if (targetParam11 === 1) {
               targetParam11 = 0;
               swipeActionTriggered = true;
-              spawnFloatingText(e.clientX, e.clientY, "遮起來了...🙈", "#ffb3c6", 1800, "28px");
+              spawnFloatingText(e.clientX, e.clientY, "討厭啦...", "#ffb3c6", 1800, "28px");
             } else if (targetParam11 === 0 && targetParam10 === 1) {
               targetParam10 = 0;
               targetClothes = -1; 
               isParam2Locked = false;
               swipeActionTriggered = true;
-              spawnFloatingText(e.clientX, e.clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
+              spawnFloatingText(e.clientX, e.clientY, "穿回內褲...", "#ffb3c6", 1500, "28px");
             }
           }
         }
@@ -839,7 +839,7 @@ function setupInteraction() {
         if (Math.abs(diffX) > 40) {
           targetParam9 = 0;
           swipeActionTriggered = true;
-          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
+          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...", "#ffb3c6", 1500, "28px");
         }
       } 
       // 功能 B：內褲還穿著時的正常左右掰動拉扯玩法
