@@ -37,6 +37,7 @@ let param5HoldStartTime = 0;
 let isHoldingForParam8 = false; 
 let lockHistory = [];          
 let lastTapTime = 0;
+let lastExecutionTime = 0; // 🌟 核心防禦：防止多圖層事件冒泡導致雙擊被觸發兩次
 let pointerDownStartTime = 0; 
 let swipeActionTriggered = false; // 確保單次滑動手勢僅觸發單一階段變更
 let legsWereOpenAtStart = false;  // 記錄每次觸碰開始時大腿的開合狀態，建立手勢隔離防禦網
@@ -182,9 +183,7 @@ function setupCounter() {
     </div>
   `;
 
-  // 🚀 進入網頁時立刻累加瀏覽量
   triggerPageView();
-
   syncWithCloud();
   setInterval(syncWithCloud, 4000);
 }
@@ -207,9 +206,8 @@ function syncWithCloud() {
       const serverSavedDate = dateData && dateData.value ? String(dateData.text || dateData.value) : currentDate;
 
       if (serverSavedDate !== currentDate) {
-        // 跨日清空跨日數據
         Promise.all([
-          fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`).then(r => r.json()),
+          fetch(`${ABACURL_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`).then(r => r.json()),
           fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?_=${ts}`).then(r => r.json())
         ]).then(([dailyData, dailyViewsData]) => {
             const expiredDailyValue = (dailyData && dailyData.value) ? dailyData.value : 0;
@@ -285,6 +283,46 @@ function updateCounterUI(serverTotal, serverDaily, serverViewsTotal, serverViews
       if (counterDiv) counterDiv.style.transform = 'translateX(-50%) scale(1)';
     }, 120);
   }
+}
+
+/**
+ * 🌟 全域核心功能：抽離並封裝螢幕任何地方均適用的「雙擊階梯還原鏈」機制
+ */
+function handleGlobalDoubleTap(clientX, clientY) {
+  const currentTime = Date.now();
+  if (currentTime - lastTapTime < 300) {
+    // 💡 防止多個重疊元件同時接收到點擊，在 50ms 內進行重置鎖定避免二次扣除
+    if (currentTime - lastExecutionTime > 50) {
+      lastExecutionTime = currentTime;
+
+      if (lockHistory.length > 0) {
+        const lastLocked = lockHistory.pop(); 
+        if (lastLocked === 'Param2') { isParam2Locked = false; targetClothes = -1; targetParam5 = -1; }
+        else if (lastLocked === 'Param7') { isParam7Locked = false; targetParam7 = -1; }
+        else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
+        else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
+      } else {
+        if (targetParam9 === 1 && targetParam10 === 1) {
+          targetParam10 = 0;
+          targetClothes = -1; 
+          isParam2Locked = false;
+          spawnFloatingText(clientX, clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
+        } else if (targetParam9 === 1 && targetParam10 === 0) {
+          targetParam9 = 0;
+          spawnFloatingText(clientX, clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
+        } else if (targetParam11 === 1) {
+          targetParam11 = 0;
+          spawnFloatingText(clientX, clientY, "收回絲襪參數...✨", "#ffb3c6", 1500, "28px");
+        } else if (targetParam10 === 1) {
+          targetParam10 = 0;
+          targetClothes = -1; 
+          isParam2Locked = false;
+          spawnFloatingText(clientX, clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
+        }
+      }
+    }
+  }
+  lastTapTime = currentTime;
 }
 
 /**
@@ -459,38 +497,8 @@ function createInvisibleHitbox() {
   `;
 
   hitbox.addEventListener('pointerdown', (e) => {
-    const currentTime = Date.now();
-    if (currentTime - lastTapTime < 300) {
-      if (lockHistory.length > 0) {
-        const lastLocked = lockHistory.pop(); 
-        if (lastLocked === 'Param2') { isParam2Locked = false; targetClothes = -1; targetParam5 = -1; }
-        else if (lastLocked === 'Param7') { isParam7Locked = false; targetParam7 = -1; }
-        else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
-        else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
-      } else {
-        // 🌟 階梯式交叉雙擊倒帶判定鏈
-        if (targetParam9 === 1 && targetParam10 === 1) {
-          // 狀態 1：大腿打開 ＋ 沒穿內褲 -> 優先恢復內褲，維持開腿
-          targetParam10 = 0;
-          targetClothes = -1; 
-          isParam2Locked = false;
-          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
-        } else if (targetParam9 === 1 && targetParam10 === 0) {
-          // 狀態 2：大腿打開 ＋ 已穿內褲 -> 合上大腿，回到初始狀態
-          targetParam9 = 0;
-          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
-        } else if (targetParam11 === 1) {
-          targetParam11 = 0;
-          spawnFloatingText(e.clientX, e.clientY, "收回絲襪參數...✨", "#ffb3c6", 1500, "28px");
-        } else if (targetParam10 === 1) {
-          targetParam10 = 0;
-          targetClothes = -1; 
-          isParam2Locked = false;
-          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
-        }
-      }
-    }
-    lastTapTime = currentTime;
+    // 🌟 呼叫全域整合式雙擊控制引擎
+    handleGlobalDoubleTap(e.clientX, e.clientY);
 
     if (isParam7Locked && targetParam9 === 1) {
       isOnModel = true;
@@ -590,7 +598,6 @@ function updateParams() {
     hitbox.style.display = (isParam7Locked && targetParam9 === 1) ? 'block' : 'none';
   }
 
-  // 全網實時「數字平滑滾動動畫」核心 (同步支援網頁瀏覽次數)
   if (isCounterInitialized) {
     if (displayedTotalCount < globalTotalCount) {
       let diff = globalTotalCount - displayedTotalCount;
@@ -643,13 +650,11 @@ function updateParams() {
     }
   }
 
-  // 全網計數器觸發判定
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
     incrementGlobalCount(); 
   }
 
-  // 🔍 更新局部特寫畫中畫
   if (pipContainer) {
     let pipTargetAlpha = 0.0;
     if (isOnModel && targetParam9 === 1 && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1000)) {
@@ -671,20 +676,16 @@ function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
-  // 大腿解鎖動態插值
   currentParam9 = lerp(currentParam9, targetParam9, 0.15);
   core.setParameterValueById("Param9", currentParam9);
 
-  // 內褲脫除參數插值
   currentParam10 = lerp(currentParam10, targetParam10, 0.15);
   core.setParameterValueById("Param10", currentParam10);
 
-  // 🌟 核心規則安全網
   if (targetParam9 === 1) {
     targetParam11 = 0;
   }
 
-  // 🌟 Param11 絲滑加載插值優化
   let p11Speed = (targetParam9 === 1) ? 0.45 : 0.15;
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
@@ -712,14 +713,12 @@ function updateParams() {
   currentParam8 = lerp(currentParam8, p8Target, 0.4);
   core.setParameterValueById("Param8", currentParam8);
 
-  // 🌟 核心驅動：頭部轉向 (ParamAngleX/Y) 平滑 Lerp 插值
   currentEyeX = lerp(currentEyeX, targetEyeX, 0.14); 
   core.setParameterValueById("ParamAngleX", currentEyeX); 
 
   currentEyeY = lerp(currentEyeY, targetEyeY, 0.14);
   core.setParameterValueById("ParamAngleY", currentEyeY); 
 
-  // 🌟 終極連動優化「頭跟著眼睛轉」
   let coordinatedBallX = Math.max(-1.0, Math.min(1.0, currentEyeX / 20.0));
   let coordinatedBallY = Math.max(-1.0, Math.min(1.0, currentEyeY / 20.0));
   core.setParameterValueById("ParamEyeBallX", coordinatedBallX);
@@ -801,39 +800,9 @@ function startEyeLookLoop() {
 function setupInteraction() {
   app.view.style.touchAction = "none";
 
+  // 🌟 核心修正：讓 app.view 監聽全螢幕雙擊，實現無死角還原機制
   app.view.addEventListener('pointerdown', (e) => {
-    const currentTime = Date.now();
-    if (currentTime - lastTapTime < 300) {
-      if (lockHistory.length > 0) {
-        const lastLocked = lockHistory.pop(); 
-        if (lastLocked === 'Param2') { isParam2Locked = false; targetClothes = -1; targetParam5 = -1; }
-        else if (lastLocked === 'Param7') { isParam7Locked = false; targetParam7 = -1; }
-        else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
-        else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
-      } else {
-        // 🌟 階梯式交叉雙擊倒帶判定鏈
-        if (targetParam9 === 1 && targetParam10 === 1) {
-          // A. 大腿打開且沒穿內褲 -> 雙擊第一步：穿回內褲，大腿保持打開
-          targetParam10 = 0;
-          targetClothes = -1; 
-          isParam2Locked = false;
-          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
-        } else if (targetParam9 === 1 && targetParam10 === 0) {
-          // B. 大腿打開且已有內褲 -> 雙擊第二步：大腿合上
-          targetParam9 = 0;
-          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
-        } else if (targetParam11 === 1) {
-          targetParam11 = 0;
-          spawnFloatingText(e.clientX, e.clientY, "收回絲襪參數...✨", "#ffb3c6", 1500, "28px");
-        } else if (targetParam10 === 1) {
-          targetParam10 = 0;
-          targetClothes = -1; 
-          isParam2Locked = false;
-          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
-        }
-      }
-    }
-    lastTapTime = currentTime;
+    handleGlobalDoubleTap(e.clientX, e.clientY);
   });
 
   model.interactive = true; 
@@ -861,10 +830,8 @@ function setupInteraction() {
       isHoldingForParam8 = false; 
     }
     
-    // 🔒 關卡 A：若「開始滑動時」大腿是合上的狀態
     if (!legsWereOpenAtStart) {
       if (startY > window.innerHeight * 0.42) {
-        // 1. 橫向滑動：正常掰開大腿
         if (swipeAxis === 'x' && Math.abs(diffX) > 40 && !swipeActionTriggered) {
           targetParam9 = 1;
           targetParam11 = 0; 
@@ -873,7 +840,6 @@ function setupInteraction() {
           swipeActionTriggered = true;
           spawnFloatingText(e.clientX, e.clientY, "把腿掰開了... ❤️", "#ffb3c6", 1800, "28px");
         } 
-        // 2. 縱向滑動：內褲控制
         else if (swipeAxis === 'y' && !swipeActionTriggered) {
           if (diffY > 40) {
             if (targetParam10 === 0) {
@@ -905,7 +871,6 @@ function setupInteraction() {
       return; 
     }
 
-    // 🔓 關卡 B：大腿在「開始滑動前」就已經是完全開啟的狀態
     if (swipeAxis === 'x') {
       if (targetParam10 === 1 && !swipeActionTriggered) {
         if (Math.abs(diffX) > 40) {
