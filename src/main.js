@@ -13,7 +13,8 @@ let swipeAxis = null;
 let targetParam9 = 0, currentParam9 = 0; // 大腿狀態 (0=關閉, 1=打開)
 let targetParam10 = 0, currentParam10 = 0; // 內褲狀態 (0=穿著, 1=脫除)
 let targetParam11 = 0, currentParam11 = 0; // 次級互動參數 (0=隱藏, 1=絲滑顯示)
-let targetParam12 = 0, currentParam12 = 0; // 🌟 液體流出參數 (0=無, 1=絲滑流出且不消失)
+let targetParam12 = 0, currentParam12 = 0; // 🌟 液體流出參數 1 (0=無, 1=絲滑流出)
+let targetParam13 = 0, currentParam13 = 0; // 🌟 液體流出參數 2 (0=無, 1=絲滑流出)
 let targetClothes = -1, currentClothes = -1;  
 let targetParam7 = -1, currentParam7 = -1;    
 let targetParam5 = -1, currentParam5 = -1;    
@@ -650,14 +651,19 @@ function updateParams() {
     }
   }
 
-  // 🌟 核心功能修改：全網計數器與液體流出累加觸發判定
+  // 🌟 全網計數器與階段性液體溢出累加判定
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
     incrementGlobalCount(); 
     
     localSwipeCount++;
-    if (localSwipeCount > 5) {
-      targetParam12 = 1; // 🔓 超過 5 次，觸發液體流出目標（永不歸零）
+    if (targetParam10 === 1) { // 僅在沒穿內褲時累積液體階段
+      if (localSwipeCount > 5) {
+        targetParam12 = 1; // 🔓 超過 5 次流出液體 1
+      }
+      if (localSwipeCount > 10) {
+        targetParam13 = 1; // 🔓 超過 10 次流出液體 2
+      }
     }
   }
 
@@ -696,9 +702,19 @@ function updateParams() {
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
 
-  // 🌟 核心功能修改：Param12 動態插值控制 (以 0.02 速度極致緩慢絲滑流出)
+  // 🌟 核心功能修改：內褲穿回判定（只要穿回內褲 targetParam10 === 0，液體立刻緩慢回收消失，並重置本機計數）
+  if (targetParam10 === 0) {
+    targetParam12 = 0;
+    targetParam13 = 0;
+    localSwipeCount = 0;
+  }
+
+  // 🌟 液體 1 與液體 2 動態插值更新 (均以 0.02 速度極致緩慢爬升流出或收回)
   currentParam12 = lerp(currentParam12, targetParam12, 0.02);
   core.setParameterValueById("Param12", currentParam12);
+
+  currentParam13 = lerp(currentParam13, targetParam13, 0.02);
+  core.setParameterValueById("Param13", currentParam13);
 
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
