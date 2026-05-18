@@ -56,10 +56,11 @@ let param8PressCount = 0;
 let swipeCounterForSwelling = 0;  
 let hasTriggeredParam13Liquid = false; 
 
-// 🌟 追蹤福利相片狀態
+// 🌟 追蹤互動與彈窗狀態
 let hasUnlockedReward = false; 
 let sessionRewardShown = false; 
 let isRewardModalOpen = false; // 🛡️ 鎖定旗標：用來防止開啟福利圖時觸發背景互動
+let isBioModalOpen = false;    // 🛡️ 鎖定旗標：用來防止開啟獨白時觸發背景互動
 
 // 🔍 特寫功能狀態變數
 let isPipActive = false;              
@@ -152,12 +153,64 @@ async function updateLoadingText(msg) {
   await new Promise(resolve => requestAnimationFrame(resolve));
 }
 
+// 🌟 在載入結束後，隱藏載入畫面的同時呼叫「年齡驗證」彈窗
 function hideLoadingUI() {
   const el = document.getElementById('app-loader');
   if (el) {
     el.style.opacity = '0';
-    setTimeout(() => el.remove(), 500);
+    setTimeout(() => {
+        el.remove();
+        showAgeVerification(); // 🌟 顯示 18+ 驗證
+    }, 500);
   }
+}
+
+// 🌟 18 歲年齡驗證視窗 (全新功能)
+function showAgeVerification() {
+  const gate = document.createElement('div');
+  gate.id = 'age-gate-ui';
+  gate.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(10, 10, 15, 0.95); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+    display: flex; flex-direction: column; justify-content: center; align-items: center; 
+    z-index: 100000; color: white; font-family: sans-serif; user-select: none;
+    transition: opacity 0.5s ease-out; opacity: 1;
+  `;
+
+  gate.innerHTML = `
+    <div style="font-size: 26px; font-weight: 900; color: #ffb3c6; margin-bottom: 25px; text-shadow: 0 0 15px rgba(255,179,198,0.7); letter-spacing: 2px; text-align: center;">🔞 警告：限制級內容</div>
+    <div style="font-size: 18px; margin-bottom: 40px; font-weight: bold; color: #ffffff; letter-spacing: 1px; text-align: center; line-height: 1.5; padding: 0 20px;">
+      本網站包含成人專屬之色情互動內容。<br>請問您是否已滿 18 歲？
+    </div>
+    <div style="display: flex; gap: 20px;">
+      <button id="btn-age-yes" style="background: linear-gradient(135deg, #ff4d88, #ff85a2); border: 2px solid #ffccdd; color: white; padding: 14px 45px; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(255,77,136,0.5); transition: transform 0.1s;">是 (Yes)</button>
+      <button id="btn-age-no" style="background: #333333; border: 2px solid #555555; color: #aaaaaa; padding: 14px 45px; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; transition: transform 0.1s;">否 (No)</button>
+    </div>
+  `;
+  document.body.appendChild(gate);
+
+  const btnYes = document.getElementById('btn-age-yes');
+  const btnNo = document.getElementById('btn-age-no');
+
+  btnYes.addEventListener('pointerdown', (e) => { e.stopPropagation(); btnYes.style.transform = 'scale(0.95)'; });
+  btnYes.addEventListener('pointerup', (e) => { e.stopPropagation(); btnYes.style.transform = 'scale(1)'; });
+  btnYes.addEventListener('click', (e) => {
+    e.stopPropagation();
+    gate.style.opacity = '0';
+    setTimeout(() => gate.remove(), 500);
+  });
+
+  btnNo.addEventListener('pointerdown', (e) => { e.stopPropagation(); btnNo.style.transform = 'scale(0.95)'; });
+  btnNo.addEventListener('pointerup', (e) => { e.stopPropagation(); btnNo.style.transform = 'scale(1)'; });
+  btnNo.addEventListener('click', (e) => {
+    e.stopPropagation();
+    window.location.href = 'https://www.instagram.com/zzzzihhj/';
+  });
+
+  // 防止點擊背景穿透
+  gate.addEventListener('pointerdown', e => e.stopPropagation());
+  gate.addEventListener('pointermove', e => e.stopPropagation());
+  gate.addEventListener('pointerup', e => e.stopPropagation());
 }
 
 // 獲取台灣時間日期字串 (YYYY-MM-DD)，作為精準的換日切割依據
@@ -343,40 +396,67 @@ function createTreatmentUI() {
   });
 }
 
-/**
- * 🖋️ 建立背景內心獨白簡介
- */
-function createBackgroundBio() {
-  if (document.getElementById('background-bio')) return;
+// 🌟 全新的獨白彈窗功能 (靠左對齊，可關閉)
+function showBioModal() {
+  if (document.getElementById('bio-modal-ui')) return;
 
-  const bioDiv = document.createElement('div');
-  bioDiv.id = 'background-bio';
-  // 🌟 排版至右上角，加入靠右對齊 (text-align: right)
-  bioDiv.style.cssText = `
-    position: fixed; top: 40px; right: 40px;
-    width: 85%; max-width: 500px; z-index: 0; pointer-events: none; user-select: none;
-    color: #000000; font-size: 14px; line-height: 1.8; font-family: sans-serif;
-    text-align: right; opacity: 0.75; letter-spacing: 1px; font-weight: bold;
+  isBioModalOpen = true; 
+  targetParam5 = -1; 
+  param5HoldStartTime = 0; 
+  isOnModel = false;
+  swipeAxis = null;
+  isHoldingForParam8 = false;
+
+  const modal = document.createElement('div');
+  modal.id = 'bio-modal-ui';
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(10, 10, 15, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    display: flex; flex-direction: column; justify-content: center; align-items: center; 
+    z-index: 10005; pointer-events: auto; opacity: 0; 
+    transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1); user-select: none;
   `;
 
-  // 🌟 置入指定的色氣獨白內容，配合排版斷行
-  bioDiv.innerHTML = `
-    我是一個超級淫蕩的又沒有羞恥心的暴露色女，<br>
-    明明知道女生的身體只有小穴是絕對不能被別人<br>
-    看到的，我卻還是厚著臉皮做了這款遊戲…<br><br>
-    
-    一想到我沒穿衣服被好多陌生人盡情瀏覽、玩弄<br>
-    ，還能隨意把我的騷穴掰開來欣賞、截圖、評論<br>
-    ，我就興奮到小穴一直流水，忍不住偷偷自慰高<br>
-    潮了好幾次…<br><br>
-    
-    可是我又好怕被認識的人發現…<br><br>
-    
-    萬一被朋友、同學或是熟人看到我這副淫亂的模<br>
-    樣，發現我其實是一個喜歡掰穴給別人看的變態<br>
-    暴露婊，應該會直接社死吧...
+  modal.addEventListener('pointerdown', e => e.stopPropagation());
+  modal.addEventListener('pointermove', e => e.stopPropagation());
+  modal.addEventListener('pointerup', e => e.stopPropagation());
+
+  // 🌟 排版設定：text-align: left (靠左)
+  modal.innerHTML = `
+    <div style="position: relative; width: 85vw; max-width: 500px; padding: 40px 30px; border: 3px solid #ff4d88; border-radius: 24px; box-shadow: 0 0 40px rgba(255, 77, 136, 0.4); background: rgba(0, 0, 0, 0.9);">
+      <div id="btn-close-bio" style="position: absolute; top: 16px; right: 16px; background: rgba(0, 0, 0, 0.75); color: #ffffff; border: 2px solid #ffb3c6; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-family: sans-serif; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s;">✕</div>
+      <div style="color: #ffccdd; font-size: 16px; line-height: 1.8; font-family: sans-serif; text-align: left; font-weight: bold; letter-spacing: 1.5px;">
+        我是一個超級淫蕩的又沒有羞恥心的暴露色女，<br>
+        明明知道女生的身體只有小穴是絕對不能被別人<br>
+        看到的，我卻還是厚著臉皮做了這款遊戲…<br><br>
+        一想到我沒穿衣服被好多陌生人盡情瀏覽、玩弄<br>
+        ，還能隨意把我的騷穴掰開來欣賞、截圖、評論<br>
+        ，我就興奮到小穴一直流水，忍不住偷偷自慰高<br>
+        潮了好幾次…<br><br>
+        可是我又好怕被認識的人發現…<br><br>
+        萬一被朋友、同學或是熟人看到我這副淫亂的模<br>
+        樣，發現我其實是一個喜歡掰穴給別人看的變態<br>
+        暴露婊，應該會直接社死吧...
+      </div>
+    </div>
   `;
-  document.body.appendChild(bioDiv);
+  document.body.appendChild(modal);
+
+  modal.offsetHeight; 
+  modal.style.opacity = '1';
+
+  const closeBtn = document.getElementById('btn-close-bio');
+  closeBtn.addEventListener('mouseenter', () => { closeBtn.style.transform = 'scale(1.15)'; closeBtn.style.color = '#ff4d88'; });
+  closeBtn.addEventListener('mouseleave', () => { closeBtn.style.transform = 'scale(1)'; closeBtn.style.color = '#ffffff'; });
+  
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    modal.style.opacity = '0';
+    setTimeout(() => {
+        modal.remove();
+        isBioModalOpen = false; 
+    }, 400);
+  });
 }
 
 function showRewardModal() {
@@ -464,7 +544,7 @@ function syncWithCloud() {
 }
 
 function handleGlobalDoubleTap(clientX, clientY) {
-  if (isRewardModalOpen) return; 
+  if (isRewardModalOpen || isBioModalOpen) return; 
 
   const currentTime = Date.now();
   if (currentTime - lastTapTime < 300) {
@@ -552,6 +632,7 @@ function resize() {
     const btnIg = document.getElementById('btn-ig-link');
     const btnPip = document.getElementById('btn-pip-toggle');
     const btn18 = document.getElementById('btn-reward-gallery');
+    const btnBio = document.getElementById('btn-bio-text'); // 🌟 加入新按鈕的 RWD 設定
     const btnX2 = document.getElementById('btn-zoom-x2');
     const btnPlus = document.getElementById('btn-zoom-plus');
     const btnMinus = document.getElementById('btn-zoom-minus');
@@ -570,6 +651,9 @@ function resize() {
       }
       if (btn18) {
         btn18.style.width = btnSize; btn18.style.height = btnSize; btn18.style.fontSize = btn18FontSize;
+      }
+      if (btnBio) {
+        btnBio.style.width = btnSize; btnBio.style.height = btnSize; btnBio.style.fontSize = btn18FontSize;
       }
       btnX2.style.width = btnSize; btnX2.style.height = btnSize; btnX2.style.fontSize = x2FontSize;
       btnPlus.style.width = btnSize; btnPlus.style.height = btnSize; btnPlus.style.fontSize = fontSize;
@@ -591,7 +675,7 @@ function resize() {
 }
 
 /**
- * 🎨 建立側邊按鈕 (加入 IG 連結、放大鏡特寫與福利按鈕)
+ * 🎨 建立側邊按鈕 (加入 IG 連結、放大鏡特寫、福利按鈕與獨白按鈕)
  */
 function createZoomButtons() {
   if (document.getElementById('zoom-container')) return; 
@@ -610,6 +694,38 @@ function createZoomButtons() {
     user-select: none; touch-action: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     transition: transform 0.1s, box-shadow 0.2s;
   `;
+
+  const btn18 = document.createElement('button');
+  btn18.id = 'btn-reward-gallery';
+  btn18.innerText = '18+';
+  btn18.style.cssText = btnStyle;
+  btn18.style.background = 'linear-gradient(135deg, #ff0055, #ff4d88)';
+  btn18.style.color = '#ffffff';
+  btn18.style.border = '2px solid #ffccdd';
+  btn18.style.boxShadow = '0 0 15px rgba(255, 77, 136, 0.8)';
+  btn18.style.display = hasUnlockedReward ? 'flex' : 'none'; 
+  
+  btn18.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
+  btn18.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    showRewardModal();
+  });
+  btn18.addEventListener('mouseenter', () => btn18.style.transform = 'scale(1.1)');
+  btn18.addEventListener('mouseleave', () => btn18.style.transform = 'scale(1)');
+
+  // 🌟 新增獨白按鈕 (💬)
+  const btnBio = document.createElement('button');
+  btnBio.id = 'btn-bio-text';
+  btnBio.innerText = '💬';
+  btnBio.style.cssText = btnStyle;
+  
+  btnBio.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
+  btnBio.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    showBioModal();
+  });
+  btnBio.addEventListener('mouseenter', () => btnBio.style.transform = 'scale(1.1)');
+  btnBio.addEventListener('mouseleave', () => btnBio.style.transform = 'scale(1)');
 
   const btnIg = document.createElement('button');
   btnIg.id = 'btn-ig-link';
@@ -648,24 +764,6 @@ function createZoomButtons() {
   });
   btnPip.addEventListener('mouseenter', () => btnPip.style.transform = 'scale(1.1)');
   btnPip.addEventListener('mouseleave', () => btnPip.style.transform = 'scale(1.1)');
-
-  const btn18 = document.createElement('button');
-  btn18.id = 'btn-reward-gallery';
-  btn18.innerText = '18+';
-  btn18.style.cssText = btnStyle;
-  btn18.style.background = 'linear-gradient(135deg, #ff0055, #ff4d88)';
-  btn18.style.color = '#ffffff';
-  btn18.style.border = '2px solid #ffccdd';
-  btn18.style.boxShadow = '0 0 15px rgba(255, 77, 136, 0.8)';
-  btn18.style.display = hasUnlockedReward ? 'flex' : 'none'; 
-  
-  btn18.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
-  btn18.addEventListener('click', (e) => {
-    e.preventDefault(); e.stopPropagation();
-    showRewardModal();
-  });
-  btn18.addEventListener('mouseenter', () => btn18.style.transform = 'scale(1.1)');
-  btn18.addEventListener('mouseleave', () => btn18.style.transform = 'scale(1)');
 
   const btnX2 = document.createElement('button');
   btnX2.id = 'btn-zoom-x2';
@@ -708,8 +806,10 @@ function createZoomButtons() {
     btnMinus.addEventListener(evt, stopZoom);
   });
 
+  // 🌟 將按鈕依序排列
   container.appendChild(btn18); 
-  container.appendChild(btnIg);
+  container.appendChild(btnBio); // 18+ 的下面
+  container.appendChild(btnIg);  // 💬 的下面
   container.appendChild(btnPip); 
   container.appendChild(btnX2);
   container.appendChild(btnPlus);
@@ -786,7 +886,7 @@ function createInvisibleHitbox() {
   `;
 
   hitbox.addEventListener('pointerdown', (e) => {
-    if (isRewardModalOpen) return;
+    if (isRewardModalOpen || isBioModalOpen) return;
 
     if (targetParam14 >= 0.5) {
       spawnFloatingText(e.clientX, e.clientY - 30, "⚠️ 腫脹嚴重，請先治療！", "#ffcc00", 1500, "24px");
@@ -815,7 +915,6 @@ function createInvisibleHitbox() {
 function setupPiP() {
   const isMobile = window.innerWidth < window.innerHeight;
   const dpr = window.devicePixelRatio || 1;
-  // 🌟 強制提高特寫畫布的解析度倍率，讓畫面超高清
   const superRes = isMobile ? Math.max(dpr * 2.5, 3) : Math.max(dpr * 3, 4);
 
   pipRenderTexture = PIXI.RenderTexture.create({
@@ -1189,12 +1288,11 @@ function setupInteraction() {
   app.view.style.touchAction = "none";
 
   window.addEventListener('pointerdown', (e) => {
-    if (isRewardModalOpen) return; 
+    if (isRewardModalOpen || isBioModalOpen) return; 
 
     if (e.target && e.target.closest('#zoom-container')) return;
     if (e.target && e.target.closest('#character-tag-ui')) return; 
     if (e.target && e.target.closest('#treatment-ui')) return; 
-    if (e.target && e.target.closest('#reward-modal-ui')) return; 
     handleGlobalDoubleTap(e.clientX, e.clientY);
 
     startX = e.clientX;
@@ -1205,7 +1303,7 @@ function setupInteraction() {
   model.buttonMode = true; 
 
   model.on('pointerdown', (e) => {
-    if (isRewardModalOpen) return; 
+    if (isRewardModalOpen || isBioModalOpen) return; 
 
     isOnModel = true;
     startX = e.data.originalEvent.clientX || e.data.global.x; 
@@ -1216,7 +1314,7 @@ function setupInteraction() {
   });
   
   window.addEventListener('pointermove', (e) => {
-    if (isRewardModalOpen) return; 
+    if (isRewardModalOpen || isBioModalOpen) return; 
 
     if (!isOnModel) return;
     const diffX = e.clientX - startX; 
@@ -1337,7 +1435,7 @@ function setupInteraction() {
   });
   
   window.addEventListener('pointerup', () => { 
-    if (isRewardModalOpen) return; 
+    if (isRewardModalOpen || isBioModalOpen) return; 
 
     if (!isOnModel) return;
     isOnModel = false; 
@@ -1405,7 +1503,6 @@ async function start() {
     createZoomButtons(); 
     createEffectContainer(); 
     createInvisibleHitbox(); 
-    createBackgroundBio(); // 🌟 呼叫渲染背景簡介
 
     setupCounter();
     createCharacterTagUI(); 
@@ -1427,7 +1524,8 @@ async function start() {
     requestAnimationFrame(() => {
         resize(); app.render(); 
         requestAnimationFrame(() => {
-            resize(); setTimeout(hideLoadingUI, 300);
+            resize(); 
+            setTimeout(hideLoadingUI, 300); // 載入結束，準備彈出年齡驗證
             setTimeout(() => { resize(); if (app.render) app.render(); }, 100);
             setTimeout(() => { resize(); if (app.render) app.render(); }, 300);
         });
