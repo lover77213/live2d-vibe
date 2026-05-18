@@ -42,7 +42,7 @@ let lastTapTime = 0;
 let lastExecutionTime = 0; // 核心防禦：防止多圖層事件冒泡導致雙擊被觸發兩次
 let pointerDownStartTime = 0; 
 let swipeActionTriggered = false; // 確保單次滑動手勢僅觸發單一階段變更
-let legsWereOpenAtStart = false;  // 記錄每次觸碰開始時大腿的開合狀態，建立手勢隔離防禦網
+let legsWereOpenAtStart = false;  
 let localSwipeCount = 0;          // 紀錄本機掰穴次數，用來觸發液體流出
 
 // 📊 全網實時計數器狀態 (徹底拔除本機暫存，100% 信任雲端與台灣時間結算)
@@ -253,7 +253,7 @@ function syncWithCloud() {
 }
 
 /**
- * 🌟 全域核心功能：階梯式雙擊還原鏈 (已整合至 Window 實現全螢幕無死角判定)
+ * 🌟 全域核心功能：階梯式雙擊還原鏈 (全方位深度整合，優化層級邏輯)
  */
 function handleGlobalDoubleTap(clientX, clientY) {
   const currentTime = Date.now();
@@ -268,15 +268,8 @@ function handleGlobalDoubleTap(clientX, clientY) {
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
       } else {
-        if (targetParam9 === 1 && targetParam10 === 1) {
-          targetParam10 = 0;
-          targetClothes = -1; 
-          isParam2Locked = false;
-          spawnFloatingText(clientX, clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
-        } else if (targetParam9 === 1 && targetParam10 === 0) {
-          targetParam9 = 0;
-          spawnFloatingText(clientX, clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
-        } else if (targetParam11 === 1) {
+        // 階梯式精準倒帶機制
+        if (targetParam11 === 1) {
           targetParam11 = 0;
           spawnFloatingText(clientX, clientY, "收回絲襪參數...✨", "#ffb3c6", 1500, "28px");
         } else if (targetParam10 === 1) {
@@ -284,6 +277,9 @@ function handleGlobalDoubleTap(clientX, clientY) {
           targetClothes = -1; 
           isParam2Locked = false;
           spawnFloatingText(clientX, clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
+        } else if (targetParam9 === 1) {
+          targetParam9 = 0;
+          spawnFloatingText(clientX, clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
         }
       }
     }
@@ -505,7 +501,6 @@ function createInvisibleHitbox() {
       startX = e.clientX; startY = e.clientY;
       swipeAxis = null;
       isHoldingForParam8 = true;
-      legsWereOpenAtStart = (targetParam9 === 1); 
       spawnFloatingText(e.clientX + 30, e.clientY - 60, "嗯...❤️", "#ffb3c6", 1500, "28px");
     }
   });
@@ -655,12 +650,12 @@ function updateParams() {
     incrementGlobalCount(); 
     
     localSwipeCount++;
-    if (targetParam10 === 1) { // 僅在沒穿內褲時累積液體階段
+    if (targetParam10 === 1) { // 僅在脫掉內褲時累積液體階段
       if (localSwipeCount > 5) {
-        targetParam12 = 1; // 超過 5 次流出液體 1
+        targetParam12 = 1; 
       }
       if (localSwipeCount > 10) {
-        targetParam13 = 1; // 超過 10 次流出液體 2
+        targetParam13 = 1; 
       }
     }
   }
@@ -700,7 +695,7 @@ function updateParams() {
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
 
-  // 內褲穿回判定（只要穿回內褲 targetParam10 === 0，液體立刻緩慢回收消失，並重置本機計數）
+  // 內褲穿回判定（只要穿回內褲 targetParam10 === 0，液體與計數立刻重置回收）
   if (targetParam10 === 0) {
     targetParam12 = 0;
     targetParam13 = 0;
@@ -824,11 +819,9 @@ function startEyeLookLoop() {
 function setupInteraction() {
   app.view.style.touchAction = "none";
 
-  // 🌟 終極優化：改為監聽最高層級 window，實現真正全螢幕、跨圖層無死角的雙擊還原判定
+  // 全螢幕點擊核心代理：雙擊螢幕任何地方均可精準響應階梯還原鏈
   window.addEventListener('pointerdown', (e) => {
-    // 防誤觸：如果點擊的是右下角縮放控制元件，直接跳過還原鏈判定
     if (e.target && e.target.closest('#zoom-container')) return;
-    
     handleGlobalDoubleTap(e.clientX, e.clientY);
   });
 
@@ -842,7 +835,6 @@ function setupInteraction() {
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
     swipeActionTriggered = false; 
-    legsWereOpenAtStart = (targetParam9 === 1); 
   });
   
   window.addEventListener('pointermove', (e) => {
@@ -857,56 +849,30 @@ function setupInteraction() {
       isHoldingForParam8 = false; 
     }
     
-    if (!legsWereOpenAtStart) {
-      if (startY > window.innerHeight * 0.42) {
-        if (swipeAxis === 'x' && Math.abs(diffX) > 40 && !swipeActionTriggered) {
+    if (!swipeAxis) return;
+
+    // 🌟 終極修正：改為純狀態導向手勢系統，徹底移除對 legsWereOpenAtStart 與 startY 區域硬性高度限制的依賴
+    if (swipeAxis === 'x') {
+      // 橫向滑動：大腿開合控制
+      if (targetParam9 === 0) {
+        if (Math.abs(diffX) > 40 && !swipeActionTriggered) {
           targetParam9 = 1;
           targetParam11 = 0; 
           targetParam3 = -1;
           targetParam = -1;
           swipeActionTriggered = true;
           spawnFloatingText(e.clientX, e.clientY, "把腿掰開了... ❤️", "#ffb3c6", 1800, "28px");
-        } 
-        else if (swipeAxis === 'y' && !swipeActionTriggered) {
-          if (diffY > 40) {
-            if (targetParam10 === 0) {
-              targetParam10 = 1;
-              targetClothes = 1; 
-              swipeActionTriggered = true; 
-              spawnFloatingText(e.clientX, e.clientY, "內褲被脫掉了...", "#ff69b4", 1800, "28px");
-            } else if (targetParam10 === 1 && targetParam11 === 0) {
-              targetParam11 = 1;
-              swipeActionTriggered = true;
-              spawnFloatingText(e.clientX, e.clientY, "不要看...", "#ffb3c6", 1800, "28px");
-            }
-          } 
-          else if (diffY < -40) {
-            if (targetParam11 === 1) {
-              targetParam11 = 0;
-              swipeActionTriggered = true;
-              spawnFloatingText(e.clientX, e.clientY, "討厭啦...", "#ffb3c6", 1800, "28px");
-            } else if (targetParam11 === 0 && targetParam10 === 1) {
-              targetParam10 = 0;
-              targetClothes = -1; 
-              isParam2Locked = false;
-              swipeActionTriggered = true;
-              spawnFloatingText(e.clientX, e.clientY, "穿回內褲...", "#ffb3c6", 1500, "28px");
-            }
-          }
         }
-      }
-      return; 
-    }
-
-    if (swipeAxis === 'x') {
-      if (targetParam10 === 1 && !swipeActionTriggered) {
-        if (Math.abs(diffX) > 40) {
+      } else {
+        if (Math.abs(diffX) > 40 && !swipeActionTriggered) {
           targetParam9 = 0;
           swipeActionTriggered = true;
           spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
         }
-      } 
-      else if (targetParam10 === 0 && targetClothes === -1 && !isParam2Locked) { 
+      }
+
+      // 裙子/衣服側向擺動 (未脫衣且未鎖定衣服時生效)
+      if (targetParam10 === 0 && targetClothes === -1 && !isParam2Locked) { 
         if (diffX > 0) {
           targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1); targetParam = -1; 
         } else {
@@ -916,18 +882,44 @@ function setupInteraction() {
         if (targetParam3 === -1) isParam3Locked = false;
         if (targetParam === -1) isParamLocked = false;
       }
-    } else if (swipeAxis === 'y') {
-      if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
-        if (diffY > 0) {
-          if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
-          else {
-            if (targetParam10 === 1) {
-              targetClothes = 1;
-            } else {
-              targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
-            }
+    } 
+    else if (swipeAxis === 'y') {
+      // 縱向滑動：深度與衣服交互控制
+      if (diffY > 40) { 
+        // 👆 向上滑動：脫內褲、看更深或深入
+        if (targetParam10 === 0 && !swipeActionTriggered) {
+          targetParam10 = 1;
+          targetClothes = 1; 
+          swipeActionTriggered = true; 
+          spawnFloatingText(e.clientX, e.clientY, "內褲被脫掉了...", "#ff69b4", 1800, "28px");
+        } else if (targetParam9 === 1 && targetParam10 === 1 && targetParam11 === 0 && !swipeActionTriggered) {
+          targetParam11 = 1;
+          swipeActionTriggered = true;
+          spawnFloatingText(e.clientX, e.clientY, "不要看...", "#ffb3c6", 1800, "28px");
+        } else if (targetParam10 === 1) {
+          // 次級精確揉捏深入控制 (Param5)
+          if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
+            if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+            else targetClothes = 1;
           }
-        } else {
+        }
+      } 
+      else if (diffY < -40) { 
+        // 👇 向下滑動：遮擋、穿回、扯下控制
+        if (targetParam9 === 1 && targetParam11 === 1 && !swipeActionTriggered) {
+          targetParam11 = 0;
+          swipeActionTriggered = true;
+          spawnFloatingText(e.clientX, e.clientY, "討厭啦...", "#ffb3c6", 1800, "28px");
+        } else if (targetParam10 === 1 && targetParam11 === 0 && !swipeActionTriggered) {
+          targetParam10 = 0;
+          targetClothes = -1; 
+          isParam2Locked = false;
+          swipeActionTriggered = true;
+          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...", "#ffb3c6", 1500, "28px");
+        }
+        
+        // 往下扯的高級參數控制 (Param7)
+        if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
           if (!isParam7Locked) {
             const down = Math.abs(diffY);
             if (down < 30) targetParam7 = -1;
