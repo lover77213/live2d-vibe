@@ -10,6 +10,7 @@ let isOnModel = false;
 let swipeAxis = null; 
 
 // 🌟 參數狀態管理
+let targetParam9 = 0, currentParam9 = 0; // 🌟 新增：大腿狀態 (0=關閉, 1=打開)
 let targetClothes = -1, currentClothes = -1;  
 let targetParam7 = -1, currentParam7 = -1;    
 let targetParam5 = -1, currentParam5 = -1;    
@@ -19,7 +20,8 @@ let targetParam6 = 0, currentParam6 = 0;
 let currentParam8 = 0;             
 let blinkTarget = 1, blinkCurrent = 1;        
 
-// 💖 表情連動狀態
+// 💖 表情連動與隨機眼神狀態
+let targetEyeX = 0, currentEyeX = 0; 
 let targetEyeY = 0, currentEyeY = 0;
 let targetMouthForm = 0, currentMouthForm = 0;
 
@@ -42,13 +44,13 @@ let hasCountedThisSwipe = false;
 const COUNTER_NAMESPACE = 'waifu_live2d_project_2026'; 
 const KEY_TOTAL = 'interactive_clicks'; 
 const KEY_DAILY = 'interactive_clicks_daily'; 
-const KEY_LAST_DATE = 'interactive_last_date'; // 用於記錄最後同步的台灣日期
+const KEY_LAST_DATE = 'interactive_last_date'; 
 const ABACUS_URL = 'https://abacus.jasoncameron.dev';
 
 // 📈 實時滾動數字特效狀態變數
 let displayedTotalCount = 0;
 let displayedDailyCount = 0;
-let isCounterInitialized = false; // 用於防止首次載入時從 0 瘋狂滾動到幾百萬
+let isCounterInitialized = false; 
 let lastRenderedTotal = -1;
 let lastRenderedDaily = -1;
 
@@ -142,33 +144,18 @@ function getTaiwanDateString() {
 }
 
 /**
- * 📊 建立與初始化雙層計數器 UI (包含今日與總計數)
+ * 📊 建立與初始化雙層計數器 UI
  */
 function setupCounter() {
   const counterDiv = document.createElement('div');
   counterDiv.id = 'global-counter-ui';
   counterDiv.style.cssText = `
-    position: fixed; 
-    bottom: 140px; 
-    left: 50%; 
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.7);
-    border: 2px solid #ffb3c6;
-    border-radius: 20px;
-    padding: 12px 30px;
-    color: #ffffff;
-    font-family: sans-serif;
-    font-weight: bold;
-    text-align: center;
-    box-shadow: 0 6px 20px rgba(255, 179, 198, 0.35);
-    z-index: 10000;
-    pointer-events: none;
-    user-select: none;
-    white-space: nowrap;
-    transition: transform 0.1s ease-out;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7); border: 2px solid #ffb3c6; border-radius: 20px;
+    padding: 12px 30px; color: #ffffff; font-family: sans-serif; font-weight: bold;
+    text-align: center; box-shadow: 0 6px 20px rgba(255, 179, 198, 0.35); z-index: 10000;
+    pointer-events: none; user-select: none; white-space: nowrap;
+    transition: transform 0.1s ease-out; display: flex; flex-direction: column; gap: 4px;
   `;
   document.body.appendChild(counterDiv);
 
@@ -183,9 +170,6 @@ function setupCounter() {
   setInterval(syncWithCloud, 4000);
 }
 
-/**
- * 🌟 從雲端同步日計數器與總計數器，並處理台灣時間跨天歸零結算邏輯
- */
 function syncWithCloud() {
   const ts = Date.now();
   const currentDate = getTaiwanDateString();
@@ -227,9 +211,6 @@ function syncWithCloud() {
     });
 }
 
-/**
- * 🌟 玩家完成一次滑動掰穴時，同時向雲端發送總數與日數 +1 請求
- */
 function incrementGlobalCount() {
   globalTotalCount++;
   globalDailyCount++;
@@ -244,7 +225,6 @@ function incrementGlobalCount() {
 }
 
 function updateCounterUI(serverTotal, serverDaily) {
-  // 🌟 核心初次載入判定：防止數字從 0 一路暴滾到幾百萬，第一次抓取直接對齊
   if (!isCounterInitialized && serverTotal > 0) {
     displayedTotalCount = serverTotal;
     displayedDailyCount = serverDaily;
@@ -315,7 +295,7 @@ function resize() {
 }
 
 /**
- * 🎨 建立長按縮放與可反悔切換的小寫 x2 兩倍放大按鈕
+ * 🎨 建立可反悔切換的小寫 x2 按鈕
  */
 function createZoomButtons() {
   if (document.getElementById('zoom-container')) return; 
@@ -323,8 +303,7 @@ function createZoomButtons() {
   const container = document.createElement('div');
   container.id = 'zoom-container';
   container.style.cssText = `
-    position: fixed; bottom: 80px; right: 25px;
-    display: flex; flex-direction: column; gap: 20px; z-index: 6000;
+    position: fixed; bottom: 80px; right: 25px; display: flex; flex-direction: column; gap: 20px; z-index: 6000;
   `;
 
   const btnStyle = `
@@ -334,7 +313,6 @@ function createZoomButtons() {
     user-select: none; touch-action: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
   `;
 
-  // 🌟 修正：按鈕文字由大寫 X2 修改為小寫 x2 
   const btnX2 = document.createElement('button');
   btnX2.id = 'btn-zoom-x2';
   btnX2.innerText = 'x2'; 
@@ -383,15 +361,14 @@ function createZoomButtons() {
 }
 
 /**
- * 💖 建立漂浮文字特效容器與觸發函數
+ * 💖 建立漂浮文字特效容器
  */
 function createEffectContainer() {
   if (document.getElementById('effect-container')) return;
   const container = document.createElement('div');
   container.id = 'effect-container';
   container.style.cssText = `
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    pointer-events: none; z-index: 9999; overflow: hidden;
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 9999; overflow: hidden;
   `;
   document.body.appendChild(container);
 }
@@ -402,21 +379,11 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
 
   const textEl = document.createElement('div');
   textEl.innerText = text;
-  
   textEl.style.cssText = `
-    position: absolute;
-    left: ${x}px;
-    top: ${y}px;
-    color: ${color}; 
-    font-size: ${fontSize};
-    font-weight: bold;
-    font-family: sans-serif;
-    text-shadow: 2px 2px 6px rgba(0,0,0,0.8);
-    transform: translate(-50%, -50%); 
-    opacity: 0;
-    white-space: nowrap; 
+    position: absolute; left: ${x}px; top: ${y}px; color: ${color}; font-size: ${fontSize};
+    font-weight: bold; font-family: sans-serif; text-shadow: 2px 2px 6px rgba(0,0,0,0.8);
+    transform: translate(-50%, -50%); opacity: 0; white-space: nowrap; 
   `;
-
   container.appendChild(textEl);
 
   const animation = textEl.animate([
@@ -424,15 +391,9 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
     { transform: 'translate(-50%, -70%)', opacity: 1, offset: 0.1 },  
     { transform: 'translate(-50%, -100%)', opacity: 1, offset: 0.8 }, 
     { transform: 'translate(-50%, -120%)', opacity: 0 }               
-  ], {
-    duration: duration, 
-    easing: 'ease-out',
-    fill: 'forwards'
-  });
+  ], { duration: duration, easing: 'ease-out', fill: 'forwards' });
 
-  animation.onfinish = () => {
-    textEl.remove();
-  };
+  animation.onfinish = () => textEl.remove();
 }
 
 /**
@@ -443,19 +404,10 @@ function createInvisibleHitbox() {
   
   const hitbox = document.createElement('div');
   hitbox.id = 'param8-invisible-hitbox';
-  
   hitbox.style.cssText = `
-    position: fixed;
-    left: 50%;
-    top: 38%; 
-    width: 60vw;
-    height: 35vh;
-    max-width: 400px;
-    max-height: 400px;
-    transform: translate(-50%, -50%);
-    z-index: 5000; 
-    display: none; 
-    touch-action: none;
+    position: fixed; left: 50%; top: 38%; width: 60vw; height: 35vh;
+    max-width: 400px; max-height: 400px; transform: translate(-50%, -50%);
+    z-index: 5000; display: none; touch-action: none;
   `;
 
   hitbox.addEventListener('pointerdown', (e) => {
@@ -467,17 +419,19 @@ function createInvisibleHitbox() {
         else if (lastLocked === 'Param7') { isParam7Locked = false; targetParam7 = -1; }
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
+      } else {
+        // 🌟 亮點優化：完全解鎖狀態下，再度雙擊可以把大腿重新關閉歸零
+        targetParam9 = 0;
+        spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
       }
     }
     lastTapTime = currentTime;
 
-    if (isParam7Locked) {
+    if (isParam7Locked && targetParam9 === 1) {
       isOnModel = true;
       pointerDownStartTime = Date.now(); 
-      startX = e.clientX;
-      startY = e.clientY;
+      startX = e.clientX; startY = e.clientY;
       swipeAxis = null;
-      
       isHoldingForParam8 = true;
       spawnFloatingText(e.clientX + 30, e.clientY - 60, "嗯...❤️", "#ffb3c6", 1500, "28px");
     }
@@ -495,32 +449,19 @@ function setupPiP() {
   const superRes = isMobile ? Math.min(dpr * 1.5, 3) : Math.min(dpr * 2, 4);
 
   pipRenderTexture = PIXI.RenderTexture.create({
-    width: window.innerWidth,
-    height: window.innerHeight,
-    resolution: superRes,
-    scaleMode: PIXI.SCALE_MODES.LINEAR 
+    width: window.innerWidth, height: window.innerHeight, resolution: superRes, scaleMode: PIXI.SCALE_MODES.LINEAR 
   });
   
   pipSprite = new PIXI.Sprite(pipRenderTexture);
-  
   pipContainer = new PIXI.Container();
   pipContainer.alpha = 0; 
-  
   pipMask = new PIXI.Graphics();
   pipBorder = new PIXI.Graphics();
   
   const textStyle = new PIXI.TextStyle({
-      fontFamily: 'sans-serif',
-      fontSize: isMobile ? 18 : 24,
-      fontWeight: 'bold',
-      fill: ['#ffffff'], 
-      stroke: '#ffb3c6', 
-      strokeThickness: 4,
-      dropShadow: true,
-      dropShadowColor: '#000000',
-      dropShadowBlur: 4,
-      dropShadowAngle: Math.PI / 4,
-      dropShadowDistance: 2,
+      fontFamily: 'sans-serif', fontSize: isMobile ? 18 : 24, fontWeight: 'bold',
+      fill: ['#ffffff'], stroke: '#ffb3c6', strokeThickness: 4, dropShadow: true,
+      dropShadowColor: '#000000', dropShadowBlur: 4, dropShadowAngle: Math.PI / 4, dropShadowDistance: 2,
   });
   pipLabelText = new PIXI.Text('小穴特寫', textStyle);
   
@@ -528,59 +469,41 @@ function setupPiP() {
   pipContainer.addChild(pipMask);
   pipContainer.addChild(pipBorder);
   pipContainer.addChild(pipLabelText); 
-  
   pipSprite.mask = pipMask;
   
   app.stage.addChild(pipContainer);
   updatePiPLayout();
 }
 
-/**
- * 🔍 🌟 動態更新局部特寫的大小與對焦位置
- */
 function updatePiPLayout() {
   if (!pipContainer || !pipRenderTexture || !model) return;
-  
   if (window.innerWidth > 0 && window.innerHeight > 0) {
     pipRenderTexture.resize(window.innerWidth, window.innerHeight);
   }
   
   const isMobile = window.innerWidth < window.innerHeight;
   const baseSize = isMobile ? Math.min(window.innerWidth * 0.45, 250) : Math.min(window.innerWidth * 0.3, 420);
-  
-  const size = baseSize * 1.35; 
-  const padding = 25;
+  const size = baseSize * 1.35; const padding = 25;
   
   pipContainer.x = window.innerWidth - size - padding;
   pipContainer.y = window.innerHeight * 0.3; 
   
-  pipMask.clear();
-  pipMask.beginFill(0xffffff);
-  pipMask.drawRoundedRect(0, 0, size, size, 20);
-  pipMask.endFill();
-  
-  pipBorder.clear();
-  pipBorder.lineStyle(6, 0xffb3c6, 0.9);
-  pipBorder.drawRoundedRect(0, 0, size, size, 20);
+  pipMask.clear().beginFill(0xffffff).drawRoundedRect(0, 0, size, size, 20).endFill();
+  pipBorder.clear().lineStyle(6, 0xffb3c6, 0.9).drawRoundedRect(0, 0, size, size, 20);
   
   if (pipLabelText) {
-      pipLabelText.x = 10;
-      pipLabelText.y = -pipLabelText.height / 2; 
+      pipLabelText.x = 10; pipLabelText.y = -pipLabelText.height / 2; 
   }
   
   const fixedAbsoluteZoom = 0.45; 
   const currentModelScale = model.scale.y || 1; 
   const effectiveZoom = fixedAbsoluteZoom / currentModelScale; 
   
-  const baseZoomLevel = 2.0;
-  const finalZoomLevel = baseZoomLevel * effectiveZoom;
+  const baseZoomLevel = 2.0; const finalZoomLevel = baseZoomLevel * effectiveZoom;
   pipSprite.scale.set(finalZoomLevel);
   
-  const focusYOffset = 580; 
-  const yOffset = focusYOffset * currentModelScale; 
-  
-  const focusX = model.x;
-  const focusY = model.y + yOffset;
+  const focusYOffset = 580; const yOffset = focusYOffset * currentModelScale; 
+  const focusX = model.x; const focusY = model.y + yOffset;
   
   pipSprite.x = size / 2 - focusX * finalZoomLevel;
   pipSprite.y = size / 2 - focusY * finalZoomLevel;
@@ -598,30 +521,24 @@ function updateParams() {
 
   const hitbox = document.getElementById('param8-invisible-hitbox');
   if (hitbox) {
-    hitbox.style.display = isParam7Locked ? 'block' : 'none';
+    // 只有大腿打開後，Param8 物理判定層才會生效
+    hitbox.style.display = (isParam7Locked && targetParam9 === 1) ? 'block' : 'none';
   }
 
-  // 🌟 1. 全網實時「數字平滑滾動動畫 (Lerp Catch-up)」核心驅動
+  // 1. 全網實時「數字平滑滾動動畫」核心驅動
   if (isCounterInitialized) {
-    // 總計數滾動
     if (displayedTotalCount < globalTotalCount) {
       let diff = globalTotalCount - displayedTotalCount;
       if (diff < 1) displayedTotalCount = globalTotalCount;
-      else displayedTotalCount += Math.max(1, Math.floor(diff * 0.08)); // 每幀追趕剩餘差距的 8%
-    } else {
-      displayedTotalCount = globalTotalCount;
-    }
+      else displayedTotalCount += Math.max(1, Math.floor(diff * 0.08)); 
+    } else { displayedTotalCount = globalTotalCount; }
 
-    // 今日計數滾動
     if (displayedDailyCount < globalDailyCount) {
       let diff = globalDailyCount - displayedDailyCount;
       if (diff < 1) displayedDailyCount = globalDailyCount;
       else displayedDailyCount += Math.max(1, Math.floor(diff * 0.08));
-    } else {
-      displayedDailyCount = globalDailyCount;
-    }
+    } else { displayedDailyCount = globalDailyCount; }
 
-    // 🌟 節流優化：只有當無條件捨去後的整數值真正改變時，才觸發 DOM 操作，極致省電
     let currentFloorTotal = Math.floor(displayedTotalCount);
     let currentFloorDaily = Math.floor(displayedDailyCount);
 
@@ -637,7 +554,7 @@ function updateParams() {
     }
   }
 
-  // 🌟 全網計數器觸發判定
+  // 全網計數器觸發判定 (加算到今日與總計)
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
     incrementGlobalCount(); 
@@ -646,22 +563,19 @@ function updateParams() {
   // 🔍 更新局部特寫畫中畫
   if (pipContainer) {
     let pipTargetAlpha = 0.0;
-    if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1000)) {
+    // 特寫同樣需要滿足大腿解鎖狀態
+    if (isOnModel && targetParam9 === 1 && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1000)) {
       pipTargetAlpha = 1.0;
     } 
 
     const alphaLerpSpeed = (pipTargetAlpha > currentPipAlpha) ? 0.15 : 0.05;
     currentPipAlpha = lerp(currentPipAlpha, pipTargetAlpha, alphaLerpSpeed); 
-    
     pipContainer.alpha = currentPipAlpha;
     
     if (currentPipAlpha > 0.01) {
       pipContainer.visible = false; 
-      try {
-        app.renderer.render(app.stage, { renderTexture: pipRenderTexture, clear: true });
-      } catch (e) {
-        app.renderer.render(app.stage, pipRenderTexture, true);
-      }
+      try { app.renderer.render(app.stage, { renderTexture: pipRenderTexture, clear: true }); } 
+      catch (e) { app.renderer.render(app.stage, pipRenderTexture, true); }
       pipContainer.visible = true; 
     }
   }
@@ -669,33 +583,32 @@ function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
+  // 🌟 2. 注入大腿狀態參數 (Param9) 的動態平滑插值
+  currentParam9 = lerp(currentParam9, targetParam9, 0.15);
+  core.setParameterValueById("Param9", currentParam9);
+
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
     else if (Date.now() - param5HoldStartTime >= 3000) {
-      isParam6Triggered = true;
-      targetParam6 = 2; 
-      
-      const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight * 0.65; 
+      isParam6Triggered = true; targetParam6 = 2; 
+      const centerX = window.innerWidth / 2; const centerY = window.innerHeight * 0.65; 
       spawnFloatingText(centerX, centerY, "處女膜破了...💔", "#ff4d4d", 3000, "48px");
     }
-  } else if (targetParam5 !== 1) {
-    param5HoldStartTime = 0; 
-  }
+  } else if (targetParam5 !== 1) { param5HoldStartTime = 0; }
 
   let p8Target = 0.0;
   if ((isHoldingForParam8 && isParam7Locked) || targetParam5 > 0) {
     if (isHoldingForParam8 && isParam7Locked) p8Target = 3.0; 
-    targetEyeY = -1.0;      
-    targetMouthForm = -1.0; 
+    targetEyeY = -1.0; targetMouthForm = -1.0; 
   } else {
-    p8Target = 0.0;
-    targetEyeY = 0.0;       
-    targetMouthForm = 0.0;  
+    p8Target = 0.0; targetEyeY = 0.0; targetMouthForm = 0.0;  
   }
 
   currentParam8 = lerp(currentParam8, p8Target, 0.4);
   core.setParameterValueById("Param8", currentParam8);
+
+  currentEyeX = lerp(currentEyeX, targetEyeX, 0.22);
+  core.setParameterValueById("ParamEyeBallX", currentEyeX);
 
   currentEyeY = lerp(currentEyeY, targetEyeY, 0.3);
   core.setParameterValueById("ParamEyeBallY", currentEyeY);
@@ -735,10 +648,20 @@ function updateParams() {
 function startBlinkLoop() {
   const loop = () => {
     setTimeout(() => {
-      blinkTarget = 0;
-      setTimeout(() => { blinkTarget = 1; }, 120);
-      loop();
+      blinkTarget = 0; setTimeout(() => { blinkTarget = 1; }, 120); loop();
     }, 2000 + Math.random() * 4000);
+  };
+  loop();
+}
+
+function startEyeLookLoop() {
+  const loop = () => {
+    setTimeout(() => {
+      const rand = Math.random();
+      if (rand < 0.4) targetEyeX = 0;
+      else targetEyeX = (Math.random() * 2 - 1) * 0.58; 
+      loop();
+    }, 1200 + Math.random() * 2300);
   };
   loop();
 }
@@ -758,6 +681,10 @@ function setupInteraction() {
         else if (lastLocked === 'Param7') { isParam7Locked = false; targetParam7 = -1; }
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
+      } else {
+        // 沒有鎖定時雙擊，合上大腿
+        targetParam9 = 0;
+        spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
       }
     }
     lastTapTime = currentTime;
@@ -786,17 +713,28 @@ function setupInteraction() {
       isHoldingForParam8 = false; 
     }
     
+    // 🌟 核心關卡：大腿未打開狀態 (targetParam9 === 0)
+    if (targetParam9 === 0) {
+      // 門檻判定：必須在臀部區域（螢幕中下半段，以點擊起點 startY 為準）
+      if (startY > window.innerHeight * 0.42) {
+        // 向左或向右滑動大於 40 像素，解鎖大腿開腿動作！
+        if (swipeAxis === 'x' && Math.abs(diffX) > 40) {
+          targetParam9 = 1;
+          spawnFloatingText(e.clientX, e.clientY, "把腿掰開了...❤️ (解鎖玩法)", "#ffb3c6", 1800, "28px");
+        }
+      }
+      return; // 🛑 核心封鎖線：只要大腿還沒開，完全跳出，不執行下面的十字與掰穴操作
+    }
+
+    // 🔓 大腿打開後 (Param9 = 1)，全面解鎖下方原本的所有互動邏輯
     if (swipeAxis === 'x') {
       if (targetClothes === -1 && !isParam2Locked) { 
         if (diffX > 0) {
-          targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1);
-          targetParam = -1; 
+          targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1); targetParam = -1; 
         } else {
           const moveLeft = Math.abs(diffX);
-          targetParam = moveLeft < 40 ? -1 : (moveLeft < 100 ? 0 : 1);
-          targetParam3 = -1;
+          targetParam = moveLeft < 40 ? -1 : (moveLeft < 100 ? 0 : 1); targetParam3 = -1;
         }
-
         if (targetParam3 === -1) isParam3Locked = false;
         if (targetParam === -1) isParamLocked = false;
       }
@@ -826,10 +764,13 @@ function setupInteraction() {
     swipeAxis = null;
     isHoldingForParam8 = false;
 
-    if (targetClothes === 1 && !isParam2Locked) { isParam2Locked = true; lockHistory.push('Param2'); }
-    if (targetParam7 === 2.8 && !isParam7Locked) { isParam7Locked = true; lockHistory.push('Param7'); }
-    if (targetParam3 === 1 && !isParam3Locked) { isParam3Locked = true; lockHistory.push('Param3'); }
-    if (targetParam === 1 && !isParamLocked) { isParamLocked = true; lockHistory.push('Param'); }
+    // 只有在大腿打開的狀態下，鬆開手才會去記錄這些高級參數的鎖定狀態
+    if (targetParam9 === 1) {
+      if (targetClothes === 1 && !isParam2Locked) { isParam2Locked = true; lockHistory.push('Param2'); }
+      if (targetParam7 === 2.8 && !isParam7Locked) { isParam7Locked = true; lockHistory.push('Param7'); }
+      if (targetParam3 === 1 && !isParam3Locked) { isParam3Locked = true; lockHistory.push('Param3'); }
+      if (targetParam === 1 && !isParamLocked) { isParamLocked = true; lockHistory.push('Param'); }
+    }
 
     targetParam5 = -1;
     hasCountedThisSwipe = false; 
@@ -840,7 +781,7 @@ function setupInteraction() {
 }
 
 /**
- * 🚀 主啟動函數 (加入分段 Loading 動畫與多重校正防壓扁核心)
+ * 🚀 主啟動函數
  */
 async function start() {
   try {
@@ -849,32 +790,20 @@ async function start() {
     createLoadingUI();
     await updateLoadingText("初始化 WebGL 繪圖引擎...");
 
-    document.documentElement.style.width = '100%';
-    document.documentElement.style.height = '100%';
-    document.body.style.width = '100%';
-    document.body.style.height = '100%';
-    document.body.style.margin = '0';
-    document.body.style.overflow = 'hidden'; 
-    document.body.style.backgroundColor = 'transparent';
+    document.documentElement.style.width = '100%'; document.documentElement.style.height = '100%';
+    document.body.style.width = '100%'; document.body.style.height = '100%';
+    document.body.style.margin = '0'; document.body.style.overflow = 'hidden'; document.body.style.backgroundColor = 'transparent';
 
     const Live2DModel = PIXI.live2d.Live2DModel;
     Live2DModel.registerTicker(PIXI.Ticker);
 
     app = new PIXI.Application({
-      resizeTo: window, 
-      backgroundAlpha: 0,
-      antialias: true, 
-      resolution: Math.max(window.devicePixelRatio, 2), 
-      autoDensity: true,
-      powerPreference: 'high-performance',
+      resizeTo: window, backgroundAlpha: 0, antialias: true, 
+      resolution: Math.max(window.devicePixelRatio, 2), autoDensity: true, powerPreference: 'high-performance',
     });
 
-    app.view.style.position = "absolute";
-    app.view.style.top = "0";
-    app.view.style.left = "0";
-    app.view.style.width = "100vw";
-    app.view.style.height = "100vh";
-    app.view.style.zIndex = "1";
+    app.view.style.position = "absolute"; app.view.style.top = "0"; app.view.style.left = "0";
+    app.view.style.width = "100vw"; app.view.style.height = "100vh"; app.view.style.zIndex = "1";
     document.body.appendChild(app.view);
 
     await updateLoadingText("下載與解析 Live2D 模型檔案...");
@@ -885,15 +814,9 @@ async function start() {
     const textures = model.textures || model.internalModel?.textures || [];
     textures.forEach((tex) => {
       if (tex && tex.baseTexture) {
-        tex.baseTexture.mipmap = (PIXI.MIPMAP_MODES && PIXI.MIPMAP_MODES.ON !== undefined) 
-          ? PIXI.MIPMAP_MODES.ON 
-          : 1; 
-          
+        tex.baseTexture.mipmap = (PIXI.MIPMAP_MODES && PIXI.MIPMAP_MODES.ON !== undefined) ? PIXI.MIPMAP_MODES.ON : 1; 
         tex.baseTexture.anisotropicLevel = 16;
-        
-        tex.baseTexture.scaleMode = (PIXI.SCALE_MODES && PIXI.SCALE_MODES.LINEAR !== undefined) 
-          ? PIXI.SCALE_MODES.LINEAR 
-          : 1; 
+        tex.baseTexture.scaleMode = (PIXI.SCALE_MODES && PIXI.SCALE_MODES.LINEAR !== undefined) ? PIXI.SCALE_MODES.LINEAR : 1; 
       }
     });
     
@@ -912,34 +835,23 @@ async function start() {
     setupPiP(); 
     setupInteraction(); 
     startBlinkLoop();
+    startEyeLookLoop(); 
     app.ticker.add(updateParams);
     
     await updateLoadingText("準備完成！");
-    
     resize();
 
     requestAnimationFrame(() => {
-        resize();
-        app.render(); 
+        resize(); app.render(); 
         requestAnimationFrame(() => {
-            resize();
-            setTimeout(hideLoadingUI, 300);
-
-            setTimeout(() => {
-              resize();
-              if (app.render) app.render();
-            }, 100);
-
-            setTimeout(() => {
-              resize();
-              if (app.render) app.render();
-            }, 300);
+            resize(); setTimeout(hideLoadingUI, 300);
+            setTimeout(() => { resize(); if (app.render) app.render(); }, 100);
+            setTimeout(() => { resize(); if (app.render) app.render(); }, 300);
         });
     });
     
     window.addEventListener("resize", () => {
-        resize();
-        createZoomButtons();
+        resize(); createZoomButtons();
     });
   } catch (err) { 
     console.error("啟動失敗:", err); 
