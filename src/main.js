@@ -426,7 +426,7 @@ function createInvisibleHitbox() {
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
       } else {
-        // 🌟 完全解鎖時的雙擊階梯還原反向鏈
+        // 完全解鎖時的雙擊階梯還原反向鏈
         if (targetParam9 === 1) {
           targetParam9 = 0;
           spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
@@ -611,7 +611,6 @@ function updateParams() {
   }
 
   // 🌟 Param11 絲滑加載插值優化
-  // 速度調校：當大腿被掰開時，以 0.45 的高速完成漸隱消失，確保比大腿張開速度 (0.15) 還要敏捷、完全不露底！
   let p11Speed = (targetParam9 === 1) ? 0.45 : 0.15;
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
@@ -739,7 +738,7 @@ function setupInteraction() {
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
       } else {
-        // 🌟 完全解鎖時的雙擊階梯還原反向鏈
+        // 完全解鎖時的雙擊階梯還原反向鏈
         if (targetParam9 === 1) {
           targetParam9 = 0;
           spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
@@ -787,7 +786,7 @@ function setupInteraction() {
         // 1. 橫向滑動：正常掰開大腿
         if (swipeAxis === 'x' && Math.abs(diffX) > 40 && !swipeActionTriggered) {
           targetParam9 = 1;
-          targetParam11 = 0; // 🌟 核心修正：掰開大腿的瞬間，立刻斬斷並歸零 Param11 的目標狀態！
+          targetParam11 = 0; // 掰開大腿的瞬間，立刻斬斷並歸零 Param11 的目標狀態！
           swipeActionTriggered = true;
           spawnFloatingText(e.clientX, e.clientY, "把腿掰開了...❤️ (解鎖玩法)", "#ffb3c6", 1800, "28px");
         } 
@@ -827,7 +826,16 @@ function setupInteraction() {
 
     // 🔓 大腿打開後 (Param9 = 1)，全面解鎖原本的所有互動邏輯
     if (swipeAxis === 'x') {
-      if (targetClothes === -1 && !isParam2Locked) { 
+      // 🌟 新增功能：若內褲已脫除 (targetParam10 === 1)，在大腿張開時左右滑動可直接把腿合上，且保持脫褲狀態
+      if (targetParam10 === 1 && !swipeActionTriggered) {
+        if (Math.abs(diffX) > 40) {
+          targetParam9 = 0;
+          swipeActionTriggered = true;
+          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
+        }
+      } 
+      // 否則，執行原本穿著內褲時的正常擺動玩法
+      else if (targetClothes === -1 && !isParam2Locked) { 
         if (diffX > 0) {
           targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1); targetParam = -1; 
         } else {
