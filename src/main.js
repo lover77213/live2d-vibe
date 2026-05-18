@@ -11,6 +11,7 @@ let swipeAxis = null;
 
 // 🌟 參數狀態管理
 let targetParam9 = 0, currentParam9 = 0; // 大腿狀態 (0=關閉, 1=打開)
+let targetParam10 = 0, currentParam10 = 0; // 🌟 新增：內褲狀態 (0=穿著, 1=脫除)
 let targetClothes = -1, currentClothes = -1;  
 let targetParam7 = -1, currentParam7 = -1;    
 let targetParam5 = -1, currentParam5 = -1;    
@@ -423,8 +424,14 @@ function createInvisibleHitbox() {
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
       } else {
-        targetParam9 = 0;
-        spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
+        // 🌟 智慧還原鏈：未鎖定狀態下雙擊，若腿開著就合腿；腿合著且內褲脫了，就穿回內褲
+        if (targetParam9 === 1) {
+          targetParam9 = 0;
+          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
+        } else if (targetParam10 === 1) {
+          targetParam10 = 0;
+          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
+        }
       }
     }
     lastTapTime = currentTime;
@@ -587,10 +594,15 @@ function updateParams() {
   currentParam9 = lerp(currentParam9, targetParam9, 0.15);
   core.setParameterValueById("Param9", currentParam9);
 
+  // 🌟 新增：內褲脫除參數插值
+  currentParam10 = lerp(currentParam10, targetParam10, 0.15);
+  core.setParameterValueById("Param10", currentParam10);
+
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
     else if (Date.now() - param5HoldStartTime >= 3000) {
-      isParam6Triggered = true; targetCamp6 = 2; 
+      isParam6Triggered = true; 
+      targetParam6 = 2; // 🌟 修正原先程式碼的 targetCamp6 拼寫錯誤
       const centerX = window.innerWidth / 2; const centerY = window.innerHeight * 0.65; 
       spawnFloatingText(centerX, centerY, "處女膜破了...💔", "#ff4d4d", 3000, "48px");
     }
@@ -600,7 +612,7 @@ function updateParams() {
   if ((isHoldingForParam8 && isParam7Locked) || targetParam5 > 0) {
     if (isHoldingForParam8 && isParam7Locked) p8Target = 3.0; 
     targetEyeX = 0.0;     // 互動時臉部水平維持正對玩家
-    targetEyeY = 0.0;     // 🌟 修正：互動時眼睛與臉部不向下看，維持水平直視
+    targetEyeY = 0.0;     // 互動時眼睛與臉部不向下看，維持水平直視
     targetMouthForm = -1.0; 
   } else {
     p8Target = 0.0; targetMouthForm = 0.0;  
@@ -630,6 +642,11 @@ function updateParams() {
 
   if (targetParam3 === 1) targetParam = -1;
   if (targetParam === 1) targetParam3 = -1;
+
+  // 🌟 核心規則連動：若內褲已脫除 (targetParam10 === 1)，強制衣服參數保持 -1 狀態，永不重新渲染內褲
+  if (targetParam10 === 1) {
+    targetClothes = -1;
+  }
 
   currentClothes = lerp(currentClothes, targetClothes, 0.15);
   core.setParameterValueById("Param2", currentClothes);
@@ -664,7 +681,7 @@ function startBlinkLoop() {
 }
 
 /**
- * 🌟 深度優化：將縱向的視線搖擺極限完全歸零（targetEyeY = 0），使隨機轉頭與移動眼珠100%只在水平軸（左右）運動
+ * 🌟 深度優化：將縱向的視線搖擺極刻意歸零（targetEyeY = 0），使隨機轉頭與移動眼珠100%只在水平軸（左右）運動
  */
 function startEyeLookLoop() {
   const loop = () => {
@@ -677,9 +694,8 @@ function startEyeLookLoop() {
       const rand = Math.random();
       if (rand < 0.3) {
         targetEyeX = 0;
-        targetEyeY = 0; // 鎖定垂直高度為 0
+        targetEyeY = 0; 
       } else {
-        // 水平保持原先的大範圍偏轉（±24.0度），垂直擺動則完全抹除為 0
         targetEyeX = (Math.random() * 2 - 1) * 24.0; 
         targetEyeY = 0; 
       }
@@ -705,8 +721,14 @@ function setupInteraction() {
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
       } else {
-        targetParam9 = 0;
-        spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
+        // 🌟 完全解鎖時的雙擊還原反向鏈
+        if (targetParam9 === 1) {
+          targetParam9 = 0;
+          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
+        } else if (targetParam10 === 1) {
+          targetParam10 = 0;
+          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
+        }
       }
     }
     lastTapTime = currentTime;
@@ -738,9 +760,17 @@ function setupInteraction() {
     // 🔒 核心關卡：大腿未打開狀態
     if (targetParam9 === 0) {
       if (startY > window.innerHeight * 0.42) {
+        // 1. 橫向滑動：正常掰開大腿
         if (swipeAxis === 'x' && Math.abs(diffX) > 40) {
           targetParam9 = 1;
           spawnFloatingText(e.clientX, e.clientY, "把腿掰開了...❤️ (解鎖玩法)", "#ffb3c6", 1800, "28px");
+        } 
+        // 2. 縱向向上滑動：脫除內褲 (Param10 = 1)
+        else if (swipeAxis === 'y' && diffY > 40) {
+          if (targetParam10 === 0) {
+            targetParam10 = 1;
+            spawnFloatingText(e.clientX, e.clientY, "內褲被脫掉了...👙", "#ff69b4", 1800, "28px");
+          }
         }
       }
       return; 
@@ -762,7 +792,14 @@ function setupInteraction() {
       if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
         if (diffY > 0) {
           if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
-          else targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+          else {
+            // 🌟 核心規則安全網：如果內褲已經事先被脫掉了，滑動便不允許觸發 Param2 內褲渲染
+            if (targetParam10 === 1) {
+              targetClothes = -1;
+            } else {
+              targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+            }
+          }
         } else {
           if (!isParam7Locked) {
             const down = Math.abs(diffY);
