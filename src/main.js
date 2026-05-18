@@ -191,14 +191,21 @@ function setupCounter() {
 
   counterDiv.innerHTML = `
     <div style="font-size: 14px; color: #a1c4fd; padding-bottom: 4px; border-bottom: 1px solid rgba(161, 196, 253, 0.2); margin-bottom: 4px; display: flex; justify-content: center; gap: 14px;">
-      <div>今日瀏覽: <span id="views-daily" style="color: #66a6ff;">...</span></div>
-      <div>歷史瀏覽: <span id="views-total" style="color: #4facfe;">...</span></div>
+      <div>今日瀏覽: <span id="views-daily" style="color: #66a6ff;">0</span></div>
+      <div>歷史瀏覽: <span id="views-total" style="color: #4facfe;">0</span></div>
     </div>
-    <div style="font-size: 16px; color: #ffb3c6;">今日被掰穴次數: <span id="count-daily" style="font-size: 18px; color: #ffb3c6;">...</span></div>
+    <div style="font-size: 16px; color: #ffb3c6;">今日被掰穴次數: <span id="count-daily" style="font-size: 18px; color: #ffb3c6;">0</span></div>
     <div style="font-size: 18px; color: #ffffff; border-top: 1px solid rgba(255, 179, 198, 0.3); padding-top: 4px; margin-top: 2px;">
-      所有玩家總掰穴次數: <span id="count-total" style="font-size: 22px; color: #ff4d88;">...</span>
+      所有玩家總掰穴次數: <span id="count-total" style="font-size: 22px; color: #ff4d88;">0</span>
     </div>
   `;
+
+  // 🛡️ 防禦優化：立即在本機啟用計數器結構，不等待雲端回應，避免畫面卡死
+  displayedTotalCount = 0;
+  displayedDailyCount = 0;
+  displayedViewsTotal = 0;
+  displayedViewsDaily = 0;
+  isCounterInitialized = true;
 
   updateCounterLayout(); 
   triggerPageView();
@@ -375,41 +382,49 @@ function showRewardModal() {
   });
 }
 
+/**
+ * 🛡️ 異常防護網：異步安全獲取雲端回應，避免 CORS 崩潰波及主執行緒
+ */
+function safeFetch(url) {
+  return fetch(url)
+    .then(res => res.ok ? res.json() : null)
+    .catch(() => null);
+}
+
 function triggerPageView() {
   const ts = Date.now();
   const currentDate = getTaiwanDateString();
-  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}?_=${ts}`);
-  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?_=${ts}`);
-  fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${ts}`);
+  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}?_=${ts}`).catch(() => {});
+  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?_=${ts}`).catch(() => {});
+  fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${ts}`).catch(() => {});
 }
 
 function syncWithCloud() {
   const ts = Date.now();
   const currentDate = getTaiwanDateString();
 
-  fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?_=${ts}`)
-    .then(res => res.json())
+  safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?_=${ts}`)
     .then(dateData => {
       const serverSavedDate = dateData && dateData.value ? String(dateData.text || dateData.value) : currentDate;
 
       if (serverSavedDate !== currentDate) {
         Promise.all([
-          fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`).then(r => r.json()),
-          fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?_=${ts}`).then(r => r.json())
+          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`),
+          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?_=${ts}`)
         ]).then(([dailyData, dailyViewsData]) => {
             const expiredDailyValue = (dailyData && dailyData.value) ? dailyData.value : 0;
             const expiredDailyViews = (dailyViewsData && dailyViewsData.value) ? dailyViewsData.value : 0;
             
             if (expiredDailyValue > 0) {
-              fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?step=${expiredDailyValue}&_=${Date.now()}`);
+              fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?step=${expiredDailyValue}&_=${Date.now()}`).catch(() => {});
             }
             if (expiredDailyViews > 0) {
-              fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}?step=${expiredDailyViews}&_=${Date.now()}`);
+              fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}?step=${expiredDailyViews}&_=${Date.now()}`).catch(() => {});
             }
             
-            fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_DAILY}?value=0&_=${Date.now()}`);
-            fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?value=0&_=${Date.now()}`);
-            fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${Date.now()}`);
+            fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_DAILY}?value=0&_=${Date.now()}`).catch(() => {});
+            fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?value=0&_=${Date.now()}`).catch(() => {});
+            fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${Date.now()}`).catch(() => {});
             
             globalDailyCount = 0;
             globalViewsDaily = 0;
@@ -417,10 +432,10 @@ function syncWithCloud() {
           }).catch(() => {});
       } else {
         Promise.all([
-          fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`).then(r => r.json()),
-          fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`).then(r => r.json()),
-          fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}?_=${ts}`).then(r => r.json()),
-          fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?_=${ts}`).then(r => r.json())
+          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`),
+          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`),
+          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}?_=${ts}`),
+          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?_=${ts}`)
         ]).then(([totalData, dailyData, totalViews, dailyViews]) => {
           const tVal = totalData && typeof totalData.value === 'number' ? totalData.value : globalTotalCount;
           const dVal = dailyData && typeof dailyData.value === 'number' ? dailyData.value : globalDailyCount;
@@ -430,10 +445,7 @@ function syncWithCloud() {
         }).catch(() => {});
       }
     })
-    .catch(() => {
-      fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`)
-        .then(res => res.json()).then(d => d && updateCounterUI(d.value, globalDailyCount, globalViewsTotal, globalViewsDaily)).catch(() => {});
-    });
+    .catch(() => {});
 }
 
 /**
@@ -483,20 +495,12 @@ function incrementGlobalCount() {
   const ts = Date.now();
   const currentDate = getTaiwanDateString();
 
-  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`);
-  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`);
-  fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${ts}`);
+  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`).catch(() => {});
+  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`).catch(() => {});
+  fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${ts}`).catch(() => {});
 }
 
 function updateCounterUI(serverTotal, serverDaily, serverViewsTotal, serverViewsDaily) {
-  if (!isCounterInitialized && serverTotal > 0) {
-    displayedTotalCount = serverTotal;
-    displayedDailyCount = serverDaily;
-    displayedViewsTotal = serverViewsTotal || 0;
-    displayedViewsDaily = serverViewsDaily || 0;
-    isCounterInitialized = true;
-  }
-
   if (serverTotal > globalTotalCount) globalTotalCount = serverTotal;
   if (serverDaily > globalDailyCount) globalDailyCount = serverDaily;
   if (serverViewsTotal > globalViewsTotal) globalViewsTotal = serverViewsTotal;
@@ -855,10 +859,9 @@ function updateParams() {
     }
   }
 
-  // 🌟【主要互動掰穴判定區塊】：控制液體功能、高潮疊加與相簿解鎖
+  // 🌟【主要互動解耦隔離區塊】：優先安全執行本地互動邏輯，最後再非同步報告雲端
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
-    incrementGlobalCount(); 
     localSwipeCount++;
 
     if (targetParam10 === 1) {
@@ -886,6 +889,13 @@ function updateParams() {
         targetParam14 = 0.5; 
         spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.5, "小穴被你掰到外翻腫起來了", "#ff3366", 2500, "32px");
       }
+    }
+
+    // 🛡️ 雲端數據報告安全隔離，其報錯不會中斷本機遊戲互動
+    try {
+      incrementGlobalCount(); 
+    } catch (netErr) {
+      console.warn("雲端同步被拒絕，已切換至獨立本機模式運作。");
     }
   }
 
