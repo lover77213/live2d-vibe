@@ -308,7 +308,6 @@ function createTreatmentUI() {
     opacity: 0; color: #ffffff; font-family: sans-serif; pointer-events: auto; user-select: none;
   `;
 
-  // 🌟 將「⚠️ 腫脹太嚴重了...」的提示語寫入控制台最下方
   div.innerHTML = `
     <div style="font-weight: 900; color: #ffb3c6; font-size: 15px; text-shadow: 0 0 8px rgba(255,179,198,0.6); letter-spacing: 1px;">🩹 陰部外翻腫脹治療控制台</div>
     <div style="display: flex; gap: 16px;">
@@ -342,6 +341,30 @@ function createTreatmentUI() {
     swipeCounterForSwelling = 0;    
     spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "擦藥治療成功，私處恢復原狀 ✨", "#a1c4fd", 2000, "26px");
   });
+}
+
+/**
+ * 🖋️ 建立背景內心獨白簡介
+ */
+function createBackgroundBio() {
+  if (document.getElementById('background-bio')) return;
+
+  const bioDiv = document.createElement('div');
+  bioDiv.id = 'background-bio';
+  bioDiv.style.cssText = `
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 85%; max-width: 650px; z-index: 0; pointer-events: none; user-select: none;
+    color: #000000; font-size: 14px; line-height: 1.8; font-family: sans-serif;
+    text-align: center; opacity: 0.85; letter-spacing: 1px; font-weight: bold;
+  `;
+
+  bioDiv.innerHTML = `
+    我是一個超級淫蕩的又沒有羞恥心的暴露色女，明明知道女生的身體只有小穴是絕對不能被別人看到的，我卻還是厚著臉皮做了這款遊戲……<br><br>
+    一想到我沒穿衣服被好多陌生人盡情瀏覽、玩弄，還能隨意把我的騷穴掰開來欣賞、截圖、評論，我就興奮到小穴一直流水，忍不住偷偷自慰高潮了好幾次……<br><br>
+    可是我又好怕被認識的人發現……<br>
+    萬一被朋友、同學或是熟人看到我這副淫亂的模樣，發現我其實是一個喜歡掰穴給別人看的變態暴露婊，應該會直接社死吧...
+  `;
+  document.body.appendChild(bioDiv);
 }
 
 function showRewardModal() {
@@ -753,7 +776,6 @@ function createInvisibleHitbox() {
   hitbox.addEventListener('pointerdown', (e) => {
     if (isRewardModalOpen) return;
 
-    // 🛡️ 腫脹鎖定：外翻時禁止打擊互動
     if (targetParam14 >= 0.5) {
       spawnFloatingText(e.clientX, e.clientY - 30, "⚠️ 腫脹嚴重，請先治療！", "#ffcc00", 1500, "24px");
       return; 
@@ -917,10 +939,9 @@ function updateParams() {
     if (targetParam14 === 0) {
       swipeCounterForSwelling++;
       if (swipeCounterForSwelling >= 15) {
-        // 🌟 腫脹瞬間：強制解除並鎖定目前的掰穴與抽插動作
         targetParam14 = 0.5; 
-        targetParam5 = -1; // 強制中斷抽插
-        targetParam7 = -1; // 強制中斷掰穴
+        targetParam5 = -1; 
+        targetParam7 = -1; 
         isParam7Locked = false;
         isHoldingForParam8 = false;
         spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.5, "小穴被你掰到外翻腫起來了！", "#ff3366", 5000, "32px");
@@ -1048,7 +1069,6 @@ function updateParams() {
   currentParam14 = lerp(currentParam14, targetParam14, 0.15);
   core.setParameterValueById("Param14", currentParam14);
 
-  // 🛡️ 處女膜破裂判定
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
     else if (Date.now() - param5HoldStartTime >= 3000) {
@@ -1259,7 +1279,6 @@ function setupInteraction() {
       if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
         if (diffY > 0) { 
           if (isParam2Locked) {
-            // 🛡️ 腫脹鎖定：禁止抽插 (Swipe Down)
             if (targetParam14 >= 0.5) {
               if (!swipeActionTriggered) {
                 spawnFloatingText(e.clientX, e.clientY, "⚠️ 腫脹嚴重，請先點擊控制台治療！", "#ffcc00", 1500, "24px");
@@ -1284,7 +1303,6 @@ function setupInteraction() {
           }
         } else {
           if (!isParam7Locked) {
-            // 🛡️ 腫脹鎖定：禁止掰開 (Swipe Up)
             if (targetParam14 >= 0.5) {
               if (!swipeActionTriggered) {
                 spawnFloatingText(e.clientX, e.clientY, "⚠️ 腫脹嚴重，請先點擊控制台治療！", "#ffcc00", 1500, "24px");
@@ -1374,6 +1392,7 @@ async function start() {
     createZoomButtons(); 
     createEffectContainer(); 
     createInvisibleHitbox(); 
+    createBackgroundBio(); // 🌟 呼叫渲染背景簡介
 
     setupCounter();
     createCharacterTagUI(); 
