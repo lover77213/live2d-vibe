@@ -49,7 +49,6 @@ let isHoldingForParam8 = false;
 let lockHistory = [];          
 let lastTapTime = 0;
 let lastExecutionTime = 0; 
-let pointerDownStartTime = 0; 
 let swipeActionTriggered = false; 
 let legsWereOpenAtStart = false;  
 let localSwipeCount = 0;          
@@ -57,14 +56,13 @@ let param8PressCount = 0;
 let swipeCounterForSwelling = 0;  
 let hasTriggeredParam13Liquid = false; 
 
-// 🌟 追蹤福利相片狀態 (移除 localStorage，重整必定消失，必須重玩解鎖)
+// 🌟 追蹤福利相片狀態
 let hasUnlockedReward = false; 
 let sessionRewardShown = false; 
+let isRewardModalOpen = false; // 🛡️ 鎖定旗標：用來防止開啟福利圖時觸發背景互動
 
 // 🔍 特寫功能狀態變數
 let isPipActive = false;              
-let pipManuallyClosed = false;        
-let longPressTriggeredThisHold = false; 
 
 // DOM 狀態快照暫存器
 let lastTreatUIDisplay = "";
@@ -335,6 +333,14 @@ function createTreatmentUI() {
 function showRewardModal() {
   if (document.getElementById('reward-modal-ui')) return;
 
+  // 🛡️ 開啟全域防護鎖定，強力中斷背景處女膜破裂的計算
+  isRewardModalOpen = true; 
+  targetParam5 = -1; 
+  param5HoldStartTime = 0; 
+  isOnModel = false;
+  swipeAxis = null;
+  isHoldingForParam8 = false;
+
   const modal = document.createElement('div');
   modal.id = 'reward-modal-ui';
   modal.style.cssText = `
@@ -368,7 +374,10 @@ function showRewardModal() {
   closeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     modal.style.opacity = '0';
-    setTimeout(() => modal.remove(), 500);
+    setTimeout(() => {
+        modal.remove();
+        isRewardModalOpen = false; // 🔓 關閉圖片後解除全域鎖定
+    }, 500);
   });
 }
 
@@ -432,6 +441,8 @@ function syncWithCloud() {
 }
 
 function handleGlobalDoubleTap(clientX, clientY) {
+  if (isRewardModalOpen) return; // 防護：圖開著不處理雙擊
+
   const currentTime = Date.now();
   if (currentTime - lastTapTime < 300) {
     if (currentTime - lastExecutionTime > 50) {
@@ -524,6 +535,7 @@ function resize() {
     model.x = window.innerWidth / 2;
     model.y = window.innerHeight / 2;
 
+    const btnPip = document.getElementById('btn-pip-toggle');
     const btn18 = document.getElementById('btn-reward-gallery');
     const btnX2 = document.getElementById('btn-zoom-x2');
     const btnPlus = document.getElementById('btn-zoom-plus');
@@ -535,6 +547,9 @@ function resize() {
       const x2FontSize = isMobile ? '42px' : '28px';
       const btn18FontSize = isMobile ? '35px' : '24px';
       
+      if (btnPip) {
+        btnPip.style.width = btnSize; btnPip.style.height = btnSize; btnPip.style.fontSize = btn18FontSize;
+      }
       if (btn18) {
         btn18.style.width = btnSize; btn18.style.height = btnSize; btn18.style.fontSize = btn18FontSize;
       }
@@ -543,7 +558,6 @@ function resize() {
       btnMinus.style.width = btnSize; btnMinus.style.height = btnSize; btnMinus.style.fontSize = fontSize;
     }
 
-    // 🌟 動態調整治療控制台高度，電腦版剛好，手機版大幅拉高避免被遮擋
     const treatUI = document.getElementById('treatment-ui');
     if (treatUI) {
       treatUI.style.bottom = isMobile ? '360px' : '180px';
@@ -559,7 +573,7 @@ function resize() {
 }
 
 /**
- * 🎨 建立側邊按鈕 (加入 18+ 福利收藏庫按鈕)
+ * 🎨 建立側邊按鈕 (加入 18+ 福利收藏庫按鈕與放大鏡按鈕)
  */
 function createZoomButtons() {
   if (document.getElementById('zoom-container')) return; 
@@ -579,7 +593,28 @@ function createZoomButtons() {
     transition: transform 0.1s, box-shadow 0.2s;
   `;
 
-  // 🌟 永久福利庫按鈕 (初始化絕對隱藏，必須遊玩解鎖)
+  const btnPip = document.createElement('button');
+  btnPip.id = 'btn-pip-toggle';
+  btnPip.innerText = '🔍';
+  btnPip.style.cssText = btnStyle;
+
+  btnPip.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
+  btnPip.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    isPipActive = !isPipActive;
+    if (isPipActive) {
+      btnPip.style.background = 'linear-gradient(135deg, #ff4d88, #ff85a2)';
+      btnPip.style.border = '2px solid #ffccdd';
+      spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.3, "特寫開啟 🔍", "#ffb3c6", 1500, "28px");
+    } else {
+      btnPip.style.background = 'rgba(0, 0, 0, 0.7)';
+      btnPip.style.border = '2px solid rgba(255, 255, 255, 0.8)';
+      spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.3, "特寫關閉 🔍", "#ff4d4d", 1500, "28px");
+    }
+  });
+  btnPip.addEventListener('mouseenter', () => btnPip.style.transform = 'scale(1.1)');
+  btnPip.addEventListener('mouseleave', () => btnPip.style.transform = 'scale(1)');
+
   const btn18 = document.createElement('button');
   btn18.id = 'btn-reward-gallery';
   btn18.innerText = '18+';
@@ -639,6 +674,7 @@ function createZoomButtons() {
     btnMinus.addEventListener(evt, stopZoom);
   });
 
+  container.appendChild(btnPip); 
   container.appendChild(btn18); 
   container.appendChild(btnX2);
   container.appendChild(btnPlus);
@@ -682,7 +718,6 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
   animation.onfinish = () => { textEl.remove(); };
 }
 
-// 🌟 統整與收斂：獨立的高潮液體與福利圖觸發函數
 function triggerClimaxEvents(x, y) {
   if (param8PressCount === 10) {
     targetParam12 = 1; 
@@ -698,9 +733,9 @@ function triggerClimaxEvents(x, y) {
     if (!hasUnlockedReward) {
       hasUnlockedReward = true;
       const btn18 = document.getElementById('btn-reward-gallery');
-      if (btn18) btn18.style.display = 'flex'; // 本次視窗永久解鎖顯示
+      if (btn18) btn18.style.display = 'flex'; 
     }
-    showRewardModal(); // 每次玩滿 30 次，動態彈出高潮獎勵
+    showRewardModal(); 
   }
 }
 
@@ -716,14 +751,14 @@ function createInvisibleHitbox() {
   `;
 
   hitbox.addEventListener('pointerdown', (e) => {
+    if (isRewardModalOpen) return; // 🛡️ 防護：圖開著不允許點擊打擊框
+
     if (isParam7Locked && targetParam9 === 1) {
       isOnModel = true;
-      pointerDownStartTime = Date.now(); 
       startX = e.clientX; startY = e.clientY;
       swipeAxis = null;
       isHoldingForParam8 = true;
       legsWereOpenAtStart = (targetParam9 === 1); 
-      longPressTriggeredThisHold = false; 
 
       if (targetParam10 === 1) {
         param8PressCount++;
@@ -930,21 +965,6 @@ function updateParams() {
     }
   }
 
-  if (pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1500)) {
-    if (!longPressTriggeredThisHold) {
-      longPressTriggeredThisHold = true;
-      if (isPipActive) {
-        isPipActive = false;
-        pipManuallyClosed = true; 
-        spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.3, "特寫關閉 🔍", "#ff4d4d", 1500, "28px");
-      } else {
-        isPipActive = true;
-        pipManuallyClosed = false; 
-        spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.3, "特寫開啟 🔍", "#ffb3c6", 1500, "28px");
-      }
-    }
-  }
-
   if (pipContainer) {
     let pipTargetAlpha = isPipActive ? 1.0 : 0.0;
     const alphaLerpSpeed = (pipTargetAlpha > currentPipAlpha) ? 0.15 : 0.05;
@@ -976,7 +996,6 @@ function updateParams() {
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
 
-  // 🌟 內褲穿上時：全面重置計數器與液體狀態 (合腿時絕對不會消失，只在穿上內褲時清除)
   if (targetParam10 === 0) {
     targetParam12 = 0;
     localSwipeCount = 0;
@@ -984,15 +1003,18 @@ function updateParams() {
     hasTriggeredParam13Liquid = false; 
     sessionRewardShown = false; 
     isPipActive = false;
-    pipManuallyClosed = false;
+    
+    const btnPip = document.getElementById('btn-pip-toggle');
+    if (btnPip) {
+      btnPip.style.background = 'rgba(0, 0, 0, 0.7)';
+      btnPip.style.border = '2px solid rgba(255, 255, 255, 0.8)';
+    }
   }
 
-  // 給予液體消失更快的平滑速度，避免卡住
   let p12Speed = (targetParam12 === 0) ? 0.2 : 0.02;
   currentParam12 = lerp(currentParam12, targetParam12, p12Speed);
   core.setParameterValueById("Param12", currentParam12);
 
-  // 🌟 關鍵修復：防漏液遮罩邏輯 (合腿時遮罩不會飆到 1.0 觸發特級液體)
   let finalParam13Target = 0;
   if (param8PressCount >= 25) {
     finalParam13Target = 1.0;
@@ -1009,7 +1031,6 @@ function updateParams() {
     }
     
     finalParam13Target = baseMaskOpacity * (1.0 - currentParam9);
-    // 🛡️ 防護罩：強制將未達高潮次數時的遮罩參數限制在 0.95，防止合腿時錯當 1.0 特級液體而漏液
     if (finalParam13Target > 0.95) finalParam13Target = 0.95; 
   }
 
@@ -1019,6 +1040,7 @@ function updateParams() {
   currentParam14 = lerp(currentParam14, targetParam14, 0.15);
   core.setParameterValueById("Param14", currentParam14);
 
+  // 🛡️ 處女膜破裂判定：確保沒有被阻斷 (param5HoldStartTime 不為 0) 才允許破裂
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
     else if (Date.now() - param5HoldStartTime >= 3000) {
@@ -1027,7 +1049,9 @@ function updateParams() {
       const centerX = window.innerWidth / 2; const centerY = window.innerHeight * 0.65; 
       spawnFloatingText(centerX, centerY, "處女膜破了...💔", "#ff4d4d", 3000, "48px");
     }
-  } else if (targetParam5 !== 1) { param5HoldStartTime = 0; }
+  } else if (targetParam5 !== 1) { 
+    param5HoldStartTime = 0; 
+  }
 
   let p8Target = 0.0;
   if ((isHoldingForParam8 && isParam7Locked) || targetParam5 > 0) {
@@ -1124,14 +1148,14 @@ function setupInteraction() {
   app.view.style.touchAction = "none";
 
   window.addEventListener('pointerdown', (e) => {
+    if (isRewardModalOpen) return; // 🛡️ 防護：圖開著不允許點擊
+
     if (e.target && e.target.closest('#zoom-container')) return;
     if (e.target && e.target.closest('#character-tag-ui')) return; 
     if (e.target && e.target.closest('#treatment-ui')) return; 
     if (e.target && e.target.closest('#reward-modal-ui')) return; 
     handleGlobalDoubleTap(e.clientX, e.clientY);
 
-    pointerDownStartTime = Date.now();
-    longPressTriggeredThisHold = false;
     startX = e.clientX;
     startY = e.clientY;
   });
@@ -1140,24 +1164,18 @@ function setupInteraction() {
   model.buttonMode = true; 
 
   model.on('pointerdown', (e) => {
+    if (isRewardModalOpen) return; // 🛡️ 防護：圖開著不允許點擊模型
+
     isOnModel = true;
-    pointerDownStartTime = Date.now(); 
     startX = e.data.originalEvent.clientX || e.data.global.x; 
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
     swipeActionTriggered = false; 
     legsWereOpenAtStart = (targetParam9 === 1); 
-    longPressTriggeredThisHold = false; 
   });
   
   window.addEventListener('pointermove', (e) => {
-    if (pointerDownStartTime > 0 && !longPressTriggeredThisHold) {
-      const moveDistX = Math.abs(e.clientX - startX);
-      const moveDistY = Math.abs(e.clientY - startY);
-      if (moveDistX > 15 || moveDistY > 15) {
-        pointerDownStartTime = 0;
-      }
-    }
+    if (isRewardModalOpen) return; // 🛡️ 防護：圖開著不允許滑動計算
 
     if (!isOnModel) return;
     const diffX = e.clientX - startX; 
@@ -1231,7 +1249,7 @@ function setupInteraction() {
       }
     } else if (swipeAxis === 'y') {
       if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
-        if (diffY > 0) { // 向下滑脫內褲
+        if (diffY > 0) { 
           if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
           else {
             if (targetParam10 === 1) {
@@ -1261,7 +1279,7 @@ function setupInteraction() {
   });
   
   window.addEventListener('pointerup', () => { 
-    pointerDownStartTime = 0; 
+    if (isRewardModalOpen) return; // 🛡️ 防護：圖開著不允許結算
 
     if (!isOnModel) return;
     isOnModel = false; 
