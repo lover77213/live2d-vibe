@@ -42,13 +42,13 @@ let lastTapTime = 0;
 let lastExecutionTime = 0; // 核心防禦：防止多圖層事件冒泡導致雙擊被觸發兩次
 let pointerDownStartTime = 0; 
 let swipeActionTriggered = false; // 確保單次滑動手勢僅觸發單一階段變更
-let legsWereOpenAtStart = false;  
+let legsWereOpenAtStart = false;  // 記錄每次觸碰開始時大腿的開合狀態，建立手勢隔離防禦網
 let localSwipeCount = 0;          // 紀錄本機掰穴次數，用來觸發液體流出
 
-// 🔍 新增特寫聯動控制變數
-let isPipActive = false;              // 特寫當前是否顯現
-let pipManuallyToggledOff = false;    // 標記玩家是否主動長按關閉過特寫
-let longPressTriggeredThisHold = false; // 防止單次長按在循環中重複切換
+// 🔍 特寫功能新狀態變數
+let isPipActive = false;              // 特寫目前是否為開啟狀態
+let pipManuallyClosed = false;        // 標記玩家是否手動長按關閉過特寫
+let longPressTriggeredThisHold = false; // 防抖鎖，確保單次長按只觸發一次切換
 
 // 📊 全網實時計數器狀態 (徹底拔除本機暫存，100% 信任雲端與台灣時間結算)
 let globalTotalCount = 0;
@@ -273,7 +273,15 @@ function handleGlobalDoubleTap(clientX, clientY) {
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
       } else {
-        if (targetParam11 === 1) {
+        if (targetParam9 === 1 && targetParam10 === 1) {
+          targetParam10 = 0;
+          targetClothes = -1; 
+          isParam2Locked = false;
+          spawnFloatingText(clientX, clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
+        } else if (targetParam9 === 1 && targetParam10 === 0) {
+          targetParam9 = 0;
+          spawnFloatingText(clientX, clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
+        } else if (targetParam11 === 1) {
           targetParam11 = 0;
           spawnFloatingText(clientX, clientY, "收回絲襪參數...✨", "#ffb3c6", 1500, "28px");
         } else if (targetParam10 === 1) {
@@ -281,9 +289,6 @@ function handleGlobalDoubleTap(clientX, clientY) {
           targetClothes = -1; 
           isParam2Locked = false;
           spawnFloatingText(clientX, clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
-        } else if (targetParam9 === 1) {
-          targetParam9 = 0;
-          spawnFloatingText(clientX, clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
         }
       }
     }
@@ -505,7 +510,8 @@ function createInvisibleHitbox() {
       startX = e.clientX; startY = e.clientY;
       swipeAxis = null;
       isHoldingForParam8 = true;
-      longPressTriggeredThisHold = false;
+      legsWereOpenAtStart = (targetParam9 === 1); 
+      longPressTriggeredThisHold = false; // 重置長按判定鎖
       spawnFloatingText(e.clientX + 30, e.clientY - 60, "嗯...❤️", "#ffb3c6", 1500, "28px");
     }
   });
@@ -664,30 +670,30 @@ function updateParams() {
       }
     }
 
-    // 🌟 新增功能：掰穴滿 3 次自動啟動特寫功能（前提是用戶沒有手動關閉過它）
-    if (localSwipeCount >= 3 && !pipManuallyToggledOff) {
+    // 🌟 新增功能：掰穴達到 3 次時，若先前無手動關閉，則自動對齊啟用特寫功能
+    if (localSwipeCount >= 3 && !pipManuallyClosed) {
       isPipActive = true;
     }
   }
 
-  // 🌟 新增功能：長按模型 1 秒智慧反轉切換特寫開關 (完美兼容原有機制，不衝突)
+  // 🌟 新增功能：長按模型達 1 秒觸發智慧雙向切換 (完全不與原判定衝突)
   if (isOnModel && targetParam9 === 1 && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1000)) {
     if (!longPressTriggeredThisHold) {
       longPressTriggeredThisHold = true;
       if (isPipActive) {
         isPipActive = false;
-        pipManuallyToggledOff = true; // 標記為玩家主動手動關閉，不再被 3 次計數強行刷開
+        pipManuallyClosed = true; // 鎖定手動關閉標籤，防止被滑動計數再次刷開
         spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.3, "特寫關閉 🔍", "#ff4d4d", 1500, "28px");
       } else {
         isPipActive = true;
-        pipManuallyToggledOff = false; // 重新啟動特寫，重置手動鎖定
+        pipManuallyClosed = false; // 解除手動關閉標籤限制
         spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.3, "特寫開啟 🔍", "#ffb3c6", 1500, "28px");
       }
     }
   }
 
   if (pipContainer) {
-    // 🌟 核心修改：依據特寫狀態機狀態動態插值
+    // 🌟 更新特寫插值邏輯：改為完全受動態開關狀態狀態機操控
     let pipTargetAlpha = isPipActive ? 1.0 : 0.0;
 
     const alphaLerpSpeed = (pipTargetAlpha > currentPipAlpha) ? 0.15 : 0.05;
@@ -719,16 +725,16 @@ function updateParams() {
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
 
-  // 內褲穿回判定（只要穿回內褲 targetParam10 === 0，液體、計數與特寫狀態立刻回收重置）
+  // 內褲穿回判定（只要穿回內褲 targetParam10 === 0，液體、計數、特寫開關全數同步重置回收）
   if (targetParam10 === 0) {
     targetParam12 = 0;
     targetParam13 = 0;
     localSwipeCount = 0;
     isPipActive = false;
-    pipManuallyToggledOff = false;
+    pipManuallyClosed = false;
   }
 
-  // 液體 1 與液體 2 動態插值更新
+  // 液體 1 與液體 2 動態插值更新 (均以 0.02 速度極致緩慢爬升流出或收回)
   currentParam12 = lerp(currentParam12, targetParam12, 0.02);
   core.setParameterValueById("Param12", currentParam12);
 
@@ -845,9 +851,11 @@ function startEyeLookLoop() {
 function setupInteraction() {
   app.view.style.touchAction = "none";
 
-  // 全螢幕點擊核心代理：雙擊螢幕任何地方均可精準響應階梯還原鏈
+  // 🌟 終極優化：改為監聽最高層級 window，實現真正全螢幕、跨圖層無死角的雙擊還原判定
   window.addEventListener('pointerdown', (e) => {
+    // 防誤觸：如果點擊的是右下角縮放控制元件，直接跳過還原鏈判定
     if (e.target && e.target.closest('#zoom-container')) return;
+    
     handleGlobalDoubleTap(e.clientX, e.clientY);
   });
 
@@ -861,7 +869,8 @@ function setupInteraction() {
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
     swipeActionTriggered = false; 
-    longPressTriggeredThisHold = false;
+    legsWereOpenAtStart = (targetParam9 === 1); 
+    longPressTriggeredThisHold = false; // 重置長按判定鎖
   });
   
   window.addEventListener('pointermove', (e) => {
@@ -876,28 +885,57 @@ function setupInteraction() {
       isHoldingForParam8 = false; 
     }
     
-    if (!swipeAxis) return;
-
-    // 🌟 終極狀態優化演算法：完美解脫 legsWereOpenAtStart 與區域高度死綁，隨時操作均可即時順暢連動
-    if (swipeAxis === 'x') {
-      if (targetParam9 === 0) {
-        if (Math.abs(diffX) > 40 && !swipeActionTriggered) {
+    // 🌟 原汁原味保留：依據您的要求，完美的隔離防禦網判定原封不動回歸
+    if (!legsWereOpenAtStart) {
+      if (startY > window.innerHeight * 0.42) {
+        if (swipeAxis === 'x' && Math.abs(diffX) > 40 && !swipeActionTriggered) {
           targetParam9 = 1;
           targetParam11 = 0; 
           targetParam3 = -1;
           targetParam = -1;
           swipeActionTriggered = true;
           spawnFloatingText(e.clientX, e.clientY, "把腿掰開了... ❤️", "#ffb3c6", 1800, "28px");
+        } 
+        else if (swipeAxis === 'y' && !swipeActionTriggered) {
+          if (diffY > 40) {
+            if (targetParam10 === 0) {
+              targetParam10 = 1;
+              targetClothes = 1; 
+              swipeActionTriggered = true; 
+              spawnFloatingText(e.clientX, e.clientY, "內褲被脫掉了...", "#ff69b4", 1800, "28px");
+            } else if (targetParam10 === 1 && targetParam11 === 0) {
+              targetParam11 = 1;
+              swipeActionTriggered = true;
+              spawnFloatingText(e.clientX, e.clientY, "不要看...", "#ffb3c6", 1800, "28px");
+            }
+          } 
+          else if (diffY < -40) {
+            if (targetParam11 === 1) {
+              targetParam11 = 0;
+              swipeActionTriggered = true;
+              spawnFloatingText(e.clientX, e.clientY, "討厭啦...", "#ffb3c6", 1800, "28px");
+            } else if (targetParam11 === 0 && targetParam10 === 1) {
+              targetParam10 = 0;
+              targetClothes = -1; 
+              isParam2Locked = false;
+              swipeActionTriggered = true;
+              spawnFloatingText(e.clientX, e.clientY, "穿回內褲...", "#ffb3c6", 1500, "28px");
+            }
+          }
         }
-      } else {
-        if (Math.abs(diffX) > 40 && !swipeActionTriggered) {
+      }
+      return; 
+    }
+
+    if (swipeAxis === 'x') {
+      if (targetParam10 === 1 && !swipeActionTriggered) {
+        if (Math.abs(diffX) > 40) {
           targetParam9 = 0;
           swipeActionTriggered = true;
           spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
         }
-      }
-
-      if (targetParam10 === 0 && targetClothes === -1 && !isParam2Locked) { 
+      } 
+      else if (targetParam10 === 0 && targetClothes === -1 && !isParam2Locked) { 
         if (diffX > 0) {
           targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1); targetParam = -1; 
         } else {
@@ -907,39 +945,18 @@ function setupInteraction() {
         if (targetParam3 === -1) isParam3Locked = false;
         if (targetParam === -1) isParamLocked = false;
       }
-    } 
-    else if (swipeAxis === 'y') {
-      if (diffY > 40) { 
-        if (targetParam10 === 0 && !swipeActionTriggered) {
-          targetParam10 = 1;
-          targetClothes = 1; 
-          swipeActionTriggered = true; 
-          spawnFloatingText(e.clientX, e.clientY, "內褲被脫掉了...", "#ff69b4", 1800, "28px");
-        } else if (targetParam9 === 1 && targetParam10 === 1 && targetParam11 === 0 && !swipeActionTriggered) {
-          targetParam11 = 1;
-          swipeActionTriggered = true;
-          spawnFloatingText(e.clientX, e.clientY, "不要看...", "#ffb3c6", 1800, "28px");
-        } else if (targetParam10 === 1) {
-          if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
-            if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
-            else targetClothes = 1;
+    } else if (swipeAxis === 'y') {
+      if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
+        if (diffY > 0) {
+          if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+          else {
+            if (targetParam10 === 1) {
+              targetClothes = 1;
+            } else {
+              targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+            }
           }
-        }
-      } 
-      else if (diffY < -40) { 
-        if (targetParam9 === 1 && targetParam11 === 1 && !swipeActionTriggered) {
-          targetParam11 = 0;
-          swipeActionTriggered = true;
-          spawnFloatingText(e.clientX, e.clientY, "討厭啦...", "#ffb3c6", 1800, "28px");
-        } else if (targetParam10 === 1 && targetParam11 === 0 && !swipeActionTriggered) {
-          targetParam10 = 0;
-          targetClothes = -1; 
-          isParam2Locked = false;
-          swipeActionTriggered = true;
-          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...", "#ffb3c6", 1500, "28px");
-        }
-        
-        if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
+        } else {
           if (!isParam7Locked) {
             const down = Math.abs(diffY);
             if (down < 30) targetParam7 = -1;
