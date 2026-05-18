@@ -10,11 +10,11 @@ let isOnModel = false;
 let swipeAxis = null; 
 
 // 🌟 參數狀態管理
-let targetParam9 = 0, currentParam9 = 0; // 大腿狀態 (0=關閉, 1=打開)
+let targetParam9 = 0, currentParam9 = 0; // 大腿狀態 (0=關閉/合腿, 1=打開/開腿)
 let targetParam10 = 0, currentParam10 = 0; // 內褲狀態 (0=穿著, 1=脫除)
 let targetParam11 = 0, currentParam11 = 0; // 次級互動參數 (0=隱藏, 1=絲滑顯示)
 let targetParam12 = 0, currentParam12 = 0; // 液體流出參數 1 (0=無, 1=絲滑流出)
-let targetParam13 = 0, currentParam13 = 0; // 液體流出參數 2 (0=無, 1=絲滑流出)
+let targetParam13 = 0, currentParam13 = 0; // 🌟 遮罩參數 (由合腿與內衣狀態公式動態驅動)
 let targetClothes = -1, currentClothes = -1;  
 let targetParam7 = -1, currentParam7 = -1;    
 let targetParam5 = -1, currentParam5 = -1;    
@@ -44,7 +44,7 @@ let pointerDownStartTime = 0;
 let swipeActionTriggered = false; // 確保單次滑動手勢僅觸發單一階段變更
 let legsWereOpenAtStart = false;  // 記錄每次觸碰開始時大腿的開合狀態，建立手勢隔離防禦網
 let localSwipeCount = 0;          // 紀錄本機掰穴次數，用來自動觸發特寫
-let param8PressCount = 0;         // 紀錄 Param8 按壓次數，用來控制液體
+let param8PressCount = 0;         // 紀錄 Param8 按壓次數，用來控制液體流出
 
 // 🔍 特寫功能狀態變數
 let isPipActive = false;              // 特寫目前是否為開啟狀態
@@ -220,7 +220,7 @@ function updateCounterLayout() {
 }
 
 /**
- * 👑 新增功能：建立可供玩家自訂點擊更改的角色上方名牌 UI
+ * 👑 建立可供玩家自訂點擊更改的角色上方名牌 UI
  */
 function createCharacterTagUI() {
   if (document.getElementById('character-tag-ui')) return;
@@ -237,7 +237,6 @@ function createCharacterTagUI() {
     transition: all 0.25s ease-out;
   `;
 
-  // 精緻懸停發光效果
   tagDiv.addEventListener('mouseenter', () => {
     tagDiv.style.border = '1px solid #ffb3c6';
     tagDiv.style.boxShadow = '0 4px 20px rgba(255, 179, 198, 0.35)';
@@ -253,7 +252,7 @@ function createCharacterTagUI() {
     font-size: 20px; color: #ffb3c6; text-shadow: 0 0 8px rgba(255, 179, 198, 0.6);
     margin-bottom: 2px; font-weight: 900;
   `;
-  nameLayer.innerText = "精液廁所曾于容"; // 預設文字
+  nameLayer.innerText = "精液廁所曾于容"; 
 
   const subLayer = document.createElement('div');
   subLayer.style.cssText = `
@@ -264,10 +263,7 @@ function createCharacterTagUI() {
   tagDiv.appendChild(nameLayer);
   tagDiv.appendChild(subLayer);
 
-  // 點擊事件：安全阻止冒泡，彈出原生 Prompt 視窗供玩家自由輸入更改名字
-  tagDiv.addEventListener('pointerdown', (e) => {
-    e.stopPropagation(); 
-  });
+  tagDiv.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
   tagDiv.addEventListener('click', (e) => {
     e.stopPropagation(); 
     const currentName = nameLayer.innerText;
@@ -605,10 +601,7 @@ function createInvisibleHitbox() {
       if (targetParam10 === 1) {
         param8PressCount++;
         if (param8PressCount >= 10) {
-          targetParam13 = 1; 
-        }
-        if (param8PressCount >= 20) {
-          targetParam12 = 1; 
+          targetParam12 = 1; // 深入按壓 10 次解鎖高階噴發
         }
       }
 
@@ -814,7 +807,6 @@ function updateParams() {
 
   if (targetParam10 === 0) {
     targetParam12 = 0;
-    targetParam13 = 0;
     localSwipeCount = 0;
     param8PressCount = 0; 
     isPipActive = false;
@@ -824,7 +816,26 @@ function updateParams() {
   currentParam12 = lerp(currentParam12, targetParam12, 0.02);
   core.setParameterValueById("Param12", currentParam12);
 
-  currentParam13 = lerp(currentParam13, targetParam13, 0.02);
+  // 🌟【BUG 維修核心】：建立 Param13 合腿遮罩動態演算法矩陣
+  // 1. 依據開腿時內衣 Param7 深度，精準分段線性映射出基礎不透明度
+  let baseMaskOpacity = 0;
+  if (currentParam7 <= 0.8) {
+    baseMaskOpacity = 0; // 內衣在 0 和 0.8 時，遮罩值完全為 0
+  } else if (currentParam7 >= 2.8) {
+    baseMaskOpacity = 1.0; // 內衣在 2.8 時，遮罩值拉滿為 1
+  } else if (currentParam7 >= 2.4) {
+    // 當內衣在 2.4 ~ 2.8 區間時，遮罩值在 0.8 ~ 1.0 之間完美插值
+    baseMaskOpacity = 0.8 + ((currentParam7 - 2.4) / 0.4) * 0.2;
+  } else {
+    // 當內衣在 0.8 ~ 2.4 區間時，遮罩值在 0 ~ 0.8 之間線性平滑爬升
+    baseMaskOpacity = 0.0 + ((currentParam7 - 0.8) / 1.6) * 0.8;
+  }
+
+  // 2. 公式防禦網隔離：「遮罩只有在合腿狀態(currentParam9=0)下才出現，開腿(currentParam9=1)不出現」
+  let finalParam13Target = baseMaskOpacity * (1.0 - currentParam9);
+
+  // 3. 以 0.15 轉折速率實現超絲滑變形過渡
+  currentParam13 = lerp(currentParam13, finalParam13Target, 0.15);
   core.setParameterValueById("Param13", currentParam13);
 
   if (targetParam5 === 1 && !isParam6Triggered) {
@@ -939,7 +950,7 @@ function setupInteraction() {
 
   window.addEventListener('pointerdown', (e) => {
     if (e.target && e.target.closest('#zoom-container')) return;
-    if (e.target && e.target.closest('#character-tag-ui')) return; // 隔離名牌點擊，免觸發還原鏈
+    if (e.target && e.target.closest('#character-tag-ui')) return; 
     handleGlobalDoubleTap(e.clientX, e.clientY);
   });
 
@@ -969,7 +980,6 @@ function setupInteraction() {
       isHoldingForParam8 = false; 
     }
     
-    // 🌟 原汁原味保留：完美的隔離防禦網判定原封不動回歸
     if (!legsWereOpenAtStart) {
       if (startY > window.innerHeight * 0.42) {
         if (swipeAxis === 'x' && Math.abs(diffX) > 40 && !swipeActionTriggered) {
@@ -1124,7 +1134,7 @@ async function start() {
     createInvisibleHitbox(); 
 
     setupCounter();
-    createCharacterTagUI(); // 在此加載全新自訂角色上方名牌功能
+    createCharacterTagUI(); 
 
     window.model = model;
     app.stage.addChild(model);
