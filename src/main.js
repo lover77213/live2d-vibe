@@ -309,7 +309,7 @@ function createTreatmentUI() {
   `;
 
   div.innerHTML = `
-    <div style="font-weight: 900; color: #ffb3c6; font-size: 15px; text-shadow: 0 0 8px rgba(255,179,198,0.6); letter-spacing: 1px;">🩹 陰部外翻腫脹治療控制台</div>
+    <div style="font-weight: 900; color: #ffb3c6; font-size: 15px; text-shadow: 0 0 8px rgba(255,179,198,0.6); letter-spacing: 1px;">小穴治療控制台</div>
     <div style="display: flex; gap: 16px;">
       <button id="btn-treat-open" style="background: linear-gradient(135deg, #ff4d88, #ff85a2); border: none; color: white; padding: 10px 22px; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 12px rgba(255,77,136,0.35); transition: transform 0.1s; font-size: 14px;">👐 掰開</button>
       <button id="btn-treat-medicine" style="background: #555555; border: none; color: white; padding: 10px 22px; border-radius: 12px; cursor: not-allowed; font-weight: bold; opacity: 0.5; transition: all 0.2s; font-size: 14px;">🧴 擦藥</button>
