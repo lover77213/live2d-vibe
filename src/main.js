@@ -20,7 +20,7 @@ let targetParam6 = 0, currentParam6 = 0;
 let currentParam8 = 0;             
 let blinkTarget = 1, blinkCurrent = 1;        
 
-// 💖 表情連動與大振幅隨機眼神狀態 (精準聯動頭部 Angle 與眼珠 EyeBall)
+// 💖 表情連動與大振幅隨機眼神狀態 (精準聯動頭部 Angle 與眼珠 EyeBall，已鎖定僅左右看)
 let targetEyeX = 0, currentEyeX = 0; 
 let targetEyeY = 0, currentEyeY = 0;
 let targetMouthForm = 0, currentMouthForm = 0;
@@ -590,7 +590,7 @@ function updateParams() {
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
     else if (Date.now() - param5HoldStartTime >= 3000) {
-      isParam6Triggered = true; targetParam6 = 2; 
+      isParam6Triggered = true; targetCamp6 = 2; 
       const centerX = window.innerWidth / 2; const centerY = window.innerHeight * 0.65; 
       spawnFloatingText(centerX, centerY, "處女膜破了...💔", "#ff4d4d", 3000, "48px");
     }
@@ -600,7 +600,7 @@ function updateParams() {
   if ((isHoldingForParam8 && isParam7Locked) || targetParam5 > 0) {
     if (isHoldingForParam8 && isParam7Locked) p8Target = 3.0; 
     targetEyeX = 0.0;     // 互動時臉部水平維持正對玩家
-    targetEyeY = -24.0;   // 🌟 幅度加大：羞恥感拉滿，更大幅度的羞澀低頭看下面！
+    targetEyeY = 0.0;     // 🌟 修正：互動時眼睛與臉部不向下看，維持水平直視
     targetMouthForm = -1.0; 
   } else {
     p8Target = 0.0; targetMouthForm = 0.0;  
@@ -610,14 +610,13 @@ function updateParams() {
   core.setParameterValueById("Param8", currentParam8);
 
   // 🌟 核心驅動：頭部轉向 (ParamAngleX/Y) 平滑 Lerp 插值
-  currentEyeX = lerp(currentEyeX, targetEyeX, 0.14); // 略微調緩插值速度，讓轉頭晃動更具物理沉浸感
+  currentEyeX = lerp(currentEyeX, targetEyeX, 0.14); 
   core.setParameterValueById("ParamAngleX", currentEyeX); 
 
   currentEyeY = lerp(currentEyeY, targetEyeY, 0.14);
   core.setParameterValueById("ParamAngleY", currentEyeY); 
 
   // 🌟 終極連動優化「頭跟著眼睛轉」：眼珠子 (ParamEyeBallX/Y) 以高比例精準協調跟隨
-  // 將 -30~+30 的頭部角度，完美映射對齊至眼珠專用的 -1.0 ~ +1.0 標準物理區間中
   let coordinatedBallX = Math.max(-1.0, Math.min(1.0, currentEyeX / 20.0));
   let coordinatedBallY = Math.max(-1.0, Math.min(1.0, currentEyeY / 20.0));
   core.setParameterValueById("ParamEyeBallX", coordinatedBallX);
@@ -665,13 +664,11 @@ function startBlinkLoop() {
 }
 
 /**
- * 🌟 深度優化：配合大角度制轉向，大幅調升隨機左右看與上下看的轉動幅度極限！
- * 讓眼睛在大範圍轉向的同時，頭部（AngleX/Y）也跟著進行等比大角度運動
+ * 🌟 深度優化：將縱向的視線搖擺極限完全歸零（targetEyeY = 0），使隨機轉頭與移動眼珠100%只在水平軸（左右）運動
  */
 function startEyeLookLoop() {
   const loop = () => {
     setTimeout(() => {
-      // 正在進行長按掰穴或強烈互動時，交由 updateParams 覆寫，跳過隨機飄移
       if (isOnModel || isHoldingForParam8 || targetParam5 > 0) {
         loop();
         return;
@@ -679,17 +676,15 @@ function startEyeLookLoop() {
 
       const rand = Math.random();
       if (rand < 0.3) {
-        // 30% 機率回正看著螢幕前的主人
         targetEyeX = 0;
-        targetEyeY = 0;
+        targetEyeY = 0; // 鎖定垂直高度為 0
       } else {
-        // 70% 機率觸發大角度視線飄移！
-        // 水平偏轉極限加大至 ±24.0 度，垂直偏轉加大至 ±10.0 度，極致仿生！
+        // 水平保持原先的大範圍偏轉（±24.0度），垂直擺動則完全抹除為 0
         targetEyeX = (Math.random() * 2 - 1) * 24.0; 
-        targetEyeY = (Math.random() * 2 - 1) * 10.0; 
+        targetEyeY = 0; 
       }
       loop();
-    }, 1200 + Math.random() * 2300); // 隨機變換頻率維持在 1.2 至 3.5 秒之間
+    }, 1200 + Math.random() * 2300);
   };
   loop();
 }
