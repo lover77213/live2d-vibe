@@ -173,6 +173,18 @@ function getTaiwanDateString() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// 🛡️ 終極快取破壞者：確保每一筆請求絕對是全新的
+function buildNoCacheUrl(base) {
+  const separator = base.includes('?') ? '&' : '?';
+  return `${base}${separator}_=${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+function safeFetch(url) {
+  return fetch(buildNoCacheUrl(url), { cache: 'no-store' })
+    .then(res => res.ok ? res.json() : null)
+    .catch(() => null);
+}
+
 function setupCounter() {
   const counterDiv = document.createElement('div');
   counterDiv.id = 'global-counter-ui';
@@ -381,42 +393,34 @@ function showRewardModal() {
   });
 }
 
-function safeFetch(url) {
-  return fetch(url)
-    .then(res => res.ok ? res.json() : null)
-    .catch(() => null);
-}
-
 function triggerPageView() {
-  const ts = Date.now();
   const currentDate = getTaiwanDateString();
-  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}?_=${ts}`).catch(() => {});
-  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?_=${ts}`).catch(() => {});
-  fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${ts}`).catch(() => {});
+  fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}`), { cache: 'no-store' }).catch(() => {});
+  fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}`), { cache: 'no-store' }).catch(() => {});
+  fetch(buildNoCacheUrl(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}`), { cache: 'no-store' }).catch(() => {});
 }
 
 function syncWithCloud() {
-  const ts = Date.now();
   const currentDate = getTaiwanDateString();
 
-  safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?_=${ts}`)
+  safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}`)
     .then(dateData => {
       const serverSavedDate = dateData && dateData.value ? String(dateData.text || dateData.value) : currentDate;
 
       if (serverSavedDate !== currentDate) {
         Promise.all([
-          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`),
-          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?_=${ts}`)
+          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}`),
+          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}`)
         ]).then(([dailyData, dailyViewsData]) => {
             const expiredDailyValue = (dailyData && dailyData.value) ? dailyData.value : 0;
             const expiredDailyViews = (dailyViewsData && dailyViewsData.value) ? dailyViewsData.value : 0;
             
-            if (expiredDailyValue > 0) fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?step=${expiredDailyValue}&_=${Date.now()}`).catch(() => {});
-            if (expiredDailyViews > 0) fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}?step=${expiredDailyViews}&_=${Date.now()}`).catch(() => {});
+            if (expiredDailyValue > 0) fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?step=${expiredDailyValue}`), { cache: 'no-store' }).catch(() => {});
+            if (expiredDailyViews > 0) fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}?step=${expiredDailyViews}`), { cache: 'no-store' }).catch(() => {});
             
-            fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_DAILY}?value=0&_=${Date.now()}`).catch(() => {});
-            fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?value=0&_=${Date.now()}`).catch(() => {});
-            fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${Date.now()}`).catch(() => {});
+            fetch(buildNoCacheUrl(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_DAILY}?value=0`), { cache: 'no-store' }).catch(() => {});
+            fetch(buildNoCacheUrl(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?value=0`), { cache: 'no-store' }).catch(() => {});
+            fetch(buildNoCacheUrl(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}`), { cache: 'no-store' }).catch(() => {});
             
             globalDailyCount = 0;
             globalViewsDaily = 0;
@@ -424,10 +428,10 @@ function syncWithCloud() {
           }).catch(() => {});
       } else {
         Promise.all([
-          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`),
-          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`),
-          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}?_=${ts}`),
-          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?_=${ts}`)
+          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_TOTAL}`),
+          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}`),
+          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}`),
+          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}`)
         ]).then(([totalData, dailyData, totalViews, dailyViews]) => {
           const tVal = totalData && typeof totalData.value === 'number' ? totalData.value : globalTotalCount;
           const dVal = dailyData && typeof dailyData.value === 'number' ? dailyData.value : globalDailyCount;
@@ -483,12 +487,11 @@ function incrementGlobalCount() {
   globalDailyCount++;
   updateCounterUI(globalTotalCount, globalDailyCount, globalViewsTotal, globalViewsDaily);
   
-  const ts = Date.now();
   const currentDate = getTaiwanDateString();
 
-  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`).catch(() => {});
-  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`).catch(() => {});
-  fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${ts}`).catch(() => {});
+  fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}`), { cache: 'no-store' }).catch(() => {});
+  fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_DAILY}`), { cache: 'no-store' }).catch(() => {});
+  fetch(buildNoCacheUrl(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}`), { cache: 'no-store' }).catch(() => {});
 }
 
 function updateCounterUI(serverTotal, serverDaily, serverViewsTotal, serverViewsDaily) {
