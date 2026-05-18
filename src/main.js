@@ -426,9 +426,9 @@ function showBioModal() {
     <div style="position: relative; width: 85vw; max-width: 500px; padding: 40px 30px; border: 3px solid #ff4d88; border-radius: 24px; box-shadow: 0 0 40px rgba(255, 77, 136, 0.4); background: rgba(0, 0, 0, 0.9);">
       <div id="btn-close-bio" style="position: absolute; top: 16px; right: 16px; background: rgba(0, 0, 0, 0.75); color: #ffffff; border: 2px solid #ffb3c6; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-family: sans-serif; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s;">✕</div>
       <div style="color: #ffccdd; font-size: 16px; line-height: 1.8; font-family: sans-serif; text-align: left; font-weight: bold; letter-spacing: 1.5px;">
-        我是一個超級淫蕩的又沒有羞恥心的暴露色女，<br>
+        我是一個超級淫蕩又沒有羞恥心的暴露色女，<br>
         明明知道女生的身體只有小穴是絕對不能給別人<br>
-        看的，我卻還是厚著臉皮做了這款遊戲...<br><br>
+        看的，卻還是厚著臉皮做了這款遊戲...<br><br>
         一想到我沒穿衣服的樣子被好多陌生人瀏覽、玩弄<br>
         ，還能隨意把我的騷穴掰開來欣賞、截圖、評論<br>
         ，我就興奮到小穴一直流水，忍不住偷偷自慰高<br>
