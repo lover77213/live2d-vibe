@@ -57,8 +57,9 @@ let param8PressCount = 0;
 let swipeCounterForSwelling = 0;  
 let hasTriggeredParam13Liquid = false; 
 
-// 🌟 追蹤 30 次福利相片是否已解鎖 (利用 LocalStorage 實現永久收藏庫)
+// 🌟 追蹤福利相片狀態 (分離「永久解鎖」與「單次遊玩彈出」，確保每次都能享受高潮畫面)
 let hasUnlockedReward = localStorage.getItem('waifu_reward_unlocked') === 'true'; 
+let sessionRewardShown = false; // 紀錄「這一次」脫下內褲後，是否已經彈出過福利圖
 
 // 🔍 特寫功能狀態變數
 let isPipActive = false;              
@@ -583,7 +584,9 @@ function createZoomButtons() {
   btn18.style.boxShadow = '0 0 15px rgba(255, 77, 136, 0.8)';
   btn18.style.display = hasUnlockedReward ? 'flex' : 'none'; // 如果已解鎖，一進來就會顯示
   
-  btn18.addEventListener('pointerdown', (e) => {
+  // 修正事件避免穿透與觸控衝突
+  btn18.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
+  btn18.addEventListener('click', (e) => {
     e.preventDefault(); e.stopPropagation();
     showRewardModal();
   });
@@ -674,6 +677,30 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
   animation.onfinish = () => { textEl.remove(); };
 }
 
+// 🌟 統整與收斂：獨立的高潮液體與福利圖觸發函數
+function triggerClimaxEvents(x, y) {
+  if (param8PressCount === 10) {
+    targetParam12 = 1; 
+    spawnFloatingText(x, y, "受不了刺激流出液體了...💧", "#00f2fe", 2000, "28px");
+  }
+  if (param8PressCount === 25) {
+    hasTriggeredParam13Liquid = true;
+    spawnFloatingText(x, y + 40, "潮吹高潮！大量愛液狂噴...💧💧", "#00e5ff", 2500, "32px");
+  }
+  
+  // 第三階段核心：解決了「解鎖後就不再彈出福利圖」的 Bug
+  if (param8PressCount === 30 && !sessionRewardShown) {
+    sessionRewardShown = true; 
+    if (!hasUnlockedReward) {
+      hasUnlockedReward = true;
+      localStorage.setItem('waifu_reward_unlocked', 'true'); // 寫入 LocalStorage
+      const btn18 = document.getElementById('btn-reward-gallery');
+      if (btn18) btn18.style.display = 'flex'; // 永久顯示按鈕
+    }
+    showRewardModal(); // 每次玩滿 30 次，依然動態彈出高潮獎勵
+  }
+}
+
 function createInvisibleHitbox() {
   if (document.getElementById('param8-invisible-hitbox')) return;
   
@@ -697,23 +724,7 @@ function createInvisibleHitbox() {
 
       if (targetParam10 === 1) {
         param8PressCount++;
-        if (param8PressCount >= 10 && targetParam12 === 0) {
-          targetParam12 = 1; 
-          spawnFloatingText(e.clientX, e.clientY - 30, "受不了刺激流出液體了...💧", "#00f2fe", 2000, "28px");
-        }
-        if (param8PressCount >= 25 && !hasTriggeredParam13Liquid) {
-          hasTriggeredParam13Liquid = true;
-          spawnFloatingText(e.clientX, e.clientY - 30, "潮吹高潮！大量愛液狂噴...💧💧", "#00e5ff", 2500, "32px");
-        }
-        
-        // 第三階段核心：解鎖福利相片並永久儲存
-        if (param8PressCount >= 30 && !hasUnlockedReward) {
-          hasUnlockedReward = true;
-          localStorage.setItem('waifu_reward_unlocked', 'true'); // 寫入 LocalStorage
-          showRewardModal();
-          const btn18 = document.getElementById('btn-reward-gallery');
-          if (btn18) btn18.style.display = 'flex'; // 顯示按鈕
-        }
+        triggerClimaxEvents(e.clientX, e.clientY - 30);
       }
 
       spawnFloatingText(e.clientX + 30, e.clientY - 60, "嗯...❤️", "#ffb3c6", 1500, "28px");
@@ -860,22 +871,7 @@ function updateParams() {
 
     if (targetParam10 === 1) {
       param8PressCount++;
-      if (param8PressCount >= 10 && targetParam12 === 0) {
-        targetParam12 = 1; 
-        spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.58, "愛液溢出來了...💧", "#00f2fe", 2000, "28px");
-      }
-      if (param8PressCount >= 25 && !hasTriggeredParam13Liquid) {
-        hasTriggeredParam13Liquid = true;
-        spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.62, "潮吹高潮！大量愛液狂噴...💧💧", "#00e5ff", 2500, "32px");
-      }
-      
-      if (param8PressCount >= 30 && !hasUnlockedReward) {
-        hasUnlockedReward = true;
-        localStorage.setItem('waifu_reward_unlocked', 'true'); // 寫入 LocalStorage
-        showRewardModal();
-        const btn18 = document.getElementById('btn-reward-gallery');
-        if (btn18) btn18.style.display = 'flex'; // 顯示按鈕
-      }
+      triggerClimaxEvents(window.innerWidth / 2, window.innerHeight * 0.58);
     }
 
     if (targetParam14 === 0) {
@@ -978,12 +974,13 @@ function updateParams() {
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
 
-  // 🌟 內褲穿上時：僅重置計數與液體
+  // 🌟 內褲穿上時：全面重置計數器與標記，確保下一次脫下時一切重新開始
   if (targetParam10 === 0) {
     targetParam12 = 0;
     localSwipeCount = 0;
     param8PressCount = 0; 
     hasTriggeredParam13Liquid = false; 
+    sessionRewardShown = false; // 關鍵修復：重置福利圖單次標記
     isPipActive = false;
     pipManuallyClosed = false;
   }
@@ -1226,13 +1223,20 @@ function setupInteraction() {
       }
     } else if (swipeAxis === 'y') {
       if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
-        if (diffY > 0) {
+        if (diffY > 0) { // 向下滑脫內褲
           if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
           else {
             if (targetParam10 === 1) {
               targetClothes = 1;
             } else {
-              targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+              let nextClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+              targetClothes = nextClothes;
+              // 🌟 關鍵修復：如果在腿張開的情況下滑脫內褲，必須強制標記 targetParam10 = 1，否則不計數不出液體！
+              if (nextClothes === 1 && !swipeActionTriggered) {
+                  targetParam10 = 1;
+                  swipeActionTriggered = true;
+                  spawnFloatingText(e.clientX, e.clientY, "內褲被脫掉了...", "#ff69b4", 1800, "28px");
+              }
             }
           }
         } else {
@@ -1354,7 +1358,4 @@ async function start() {
   }
 }
 
-/**
- * 網頁載入完成後啟動
- */
 window.addEventListener('DOMContentLoaded', start);
