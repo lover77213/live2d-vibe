@@ -564,9 +564,10 @@ function resize() {
       btnMinus.style.width = btnSize; btnMinus.style.height = btnSize; btnMinus.style.fontSize = fontSize;
     }
 
+    // 🌟 在這裡將電腦版（非 isMobile）的高度調降到 60px
     const treatUI = document.getElementById('treatment-ui');
     if (treatUI) {
-      treatUI.style.bottom = isMobile ? '360px' : '180px';
+      treatUI.style.bottom = isMobile ? '360px' : '60px';
     }
 
     if (typeof updatePiPLayout === 'function') {
