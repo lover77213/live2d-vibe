@@ -535,6 +535,7 @@ function resize() {
     model.x = window.innerWidth / 2;
     model.y = window.innerHeight / 2;
 
+    const btnIg = document.getElementById('btn-ig-link');
     const btnPip = document.getElementById('btn-pip-toggle');
     const btn18 = document.getElementById('btn-reward-gallery');
     const btnX2 = document.getElementById('btn-zoom-x2');
@@ -547,6 +548,9 @@ function resize() {
       const x2FontSize = isMobile ? '42px' : '28px';
       const btn18FontSize = isMobile ? '35px' : '24px';
       
+      if (btnIg) {
+        btnIg.style.width = btnSize; btnIg.style.height = btnSize; btnIg.style.fontSize = btn18FontSize;
+      }
       if (btnPip) {
         btnPip.style.width = btnSize; btnPip.style.height = btnSize; btnPip.style.fontSize = btn18FontSize;
       }
@@ -573,7 +577,7 @@ function resize() {
 }
 
 /**
- * 🎨 建立側邊按鈕 (加入 18+ 福利收藏庫按鈕與放大鏡按鈕)
+ * 🎨 建立側邊按鈕 (加入 IG 連結、放大鏡特寫與福利按鈕)
  */
 function createZoomButtons() {
   if (document.getElementById('zoom-container')) return; 
@@ -593,6 +597,24 @@ function createZoomButtons() {
     transition: transform 0.1s, box-shadow 0.2s;
   `;
 
+  // 🌟 IG 作者連結按鈕 (Instagram 風格漸層)
+  const btnIg = document.createElement('button');
+  btnIg.id = 'btn-ig-link';
+  btnIg.innerText = 'IG';
+  btnIg.style.cssText = btnStyle;
+  btnIg.style.background = 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)';
+  btnIg.style.color = '#ffffff';
+  btnIg.style.border = '2px solid #ffffff';
+  
+  btnIg.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
+  btnIg.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    window.open('https://www.instagram.com/zzzzihhj/', '_blank');
+  });
+  btnIg.addEventListener('mouseenter', () => btnIg.style.transform = 'scale(1.1)');
+  btnIg.addEventListener('mouseleave', () => btnIg.style.transform = 'scale(1)');
+
+  // 🌟 特寫 (PiP) 開關按鈕
   const btnPip = document.createElement('button');
   btnPip.id = 'btn-pip-toggle';
   btnPip.innerText = '🔍';
@@ -615,6 +637,7 @@ function createZoomButtons() {
   btnPip.addEventListener('mouseenter', () => btnPip.style.transform = 'scale(1.1)');
   btnPip.addEventListener('mouseleave', () => btnPip.style.transform = 'scale(1)');
 
+  // 🌟 永久福利庫按鈕
   const btn18 = document.createElement('button');
   btn18.id = 'btn-reward-gallery';
   btn18.innerText = '18+';
@@ -674,6 +697,8 @@ function createZoomButtons() {
     btnMinus.addEventListener(evt, stopZoom);
   });
 
+  // 加入順序：IG -> 特寫🔍 -> 18+ -> x2 -> ＋ -> －
+  container.appendChild(btnIg);
   container.appendChild(btnPip); 
   container.appendChild(btn18); 
   container.appendChild(btnX2);
