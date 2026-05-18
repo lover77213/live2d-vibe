@@ -39,6 +39,7 @@ let lockHistory = [];
 let lastTapTime = 0;
 let pointerDownStartTime = 0; 
 let swipeActionTriggered = false; // 確保單次滑動手勢僅觸發單一階段變更
+let legsWereOpenAtStart = false;  // 🌟 核心新增：記錄每次觸碰開始時大腿的開合狀態，建立手勢隔離防禦網
 
 // 📊 全網實時計數器狀態 (徹底拔除本機暫存，100% 信任雲端與台灣時間結算)
 let globalTotalCount = 0;
@@ -449,6 +450,7 @@ function createInvisibleHitbox() {
       startX = e.clientX; startY = e.clientY;
       swipeAxis = null;
       isHoldingForParam8 = true;
+      legsWereOpenAtStart = (targetParam9 === 1); // 同步記錄起始狀態
       spawnFloatingText(e.clientX + 30, e.clientY - 60, "嗯...❤️", "#ffb3c6", 1500, "28px");
     }
   });
@@ -765,7 +767,8 @@ function setupInteraction() {
     startX = e.data.originalEvent.clientX || e.data.global.x; 
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
-    swipeActionTriggered = false; // 每次重新點擊時，重置單次手勢鎖定鎖
+    swipeActionTriggered = false; 
+    legsWereOpenAtStart = (targetParam9 === 1); // 🌟 每次點擊瞬間，精準錨定大腿的起始開合狀態
   });
   
   window.addEventListener('pointermove', (e) => {
@@ -780,17 +783,22 @@ function setupInteraction() {
       isHoldingForParam8 = false; 
     }
     
-    // 🔒 核心關卡：大腿未打開狀態
-    if (targetParam9 === 0) {
+    // 🔒 關卡 A：若「開始滑動時」大腿是合上的狀態 (以隔離鎖為準)
+    if (!legsWereOpenAtStart) {
       if (startY > window.innerHeight * 0.42) {
         // 1. 橫向滑動：正常掰開大腿
         if (swipeAxis === 'x' && Math.abs(diffX) > 40 && !swipeActionTriggered) {
           targetParam9 = 1;
-          targetParam11 = 0; // 掰開大腿的瞬間，立刻斬斷並歸零 Param11 的目標狀態！
+          targetParam11 = 0; // 掰開大腿的瞬間，立刻斬斷並歸零 Param11 狀態
+          
+          // 🌟 核心修正：開腿的這趟手勢中，強制將內褲左右拉扯參數回歸完美預設值 (-1)，絕不變形
+          targetParam3 = -1;
+          targetParam = -1;
+          
           swipeActionTriggered = true;
           spawnFloatingText(e.clientX, e.clientY, "把腿掰開了...❤️ (解鎖玩法)", "#ffb3c6", 1800, "28px");
         } 
-        // 2. 縱向滑動：內褲與 Param11 階梯式多段控制核心 (配合手勢鎖保護)
+        // 2. 縱向滑動：內褲與 Param11 階梯式多段控制核心
         else if (swipeAxis === 'y' && !swipeActionTriggered) {
           // ⬆️ 向上滑動機制
           if (diffY > 40) {
@@ -821,12 +829,12 @@ function setupInteraction() {
           }
         }
       }
-      return; 
+      return; // 🌟 核心保險：只要本次滑動是從「合腿」發起的，就此攔截返回，絕對不允許在此滑動中穿透到下方的十字操控！
     }
 
-    // 🔓 大腿打開後 (Param9 = 1)，全面解鎖原本的所有互動邏輯
+    // 🔓 關卡 B：大腿在「開始滑動前」就已經是完全開啟的狀態 (必須是另一次獨立的新滑動)
     if (swipeAxis === 'x') {
-      // 🌟 新增功能：若內褲已脫除 (targetParam10 === 1)，在大腿張開時左右滑動可直接把腿合上，且保持脫褲狀態
+      // 功能 A：若內褲已脫除，在大腿張開時左右滑動可直接把腿合上，且保持脫褲狀態
       if (targetParam10 === 1 && !swipeActionTriggered) {
         if (Math.abs(diffX) > 40) {
           targetParam9 = 0;
@@ -834,8 +842,8 @@ function setupInteraction() {
           spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
         }
       } 
-      // 否則，執行原本穿著內褲時的正常擺動玩法
-      else if (targetClothes === -1 && !isParam2Locked) { 
+      // 功能 B：內褲還穿著時的正常左右掰動拉扯玩法
+      else if (targetParam10 === 0 && targetClothes === -1 && !isParam2Locked) { 
         if (diffX > 0) {
           targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1); targetParam = -1; 
         } else {
@@ -876,7 +884,7 @@ function setupInteraction() {
     pointerDownStartTime = 0; 
     swipeAxis = null;
     isHoldingForParam8 = false;
-    swipeActionTriggered = false; // 手指完全抬起，釋放操作鎖
+    swipeActionTriggered = false; 
 
     if (targetParam9 === 1) {
       if (targetClothes === 1 && !isParam2Locked) { isParam2Locked = true; lockHistory.push('Param2'); }
