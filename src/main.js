@@ -57,9 +57,9 @@ let param8PressCount = 0;
 let swipeCounterForSwelling = 0;  
 let hasTriggeredParam13Liquid = false; 
 
-// 🌟 追蹤福利相片狀態 (分離「永久解鎖」與「單次遊玩彈出」，確保每次都能享受高潮畫面)
-let hasUnlockedReward = localStorage.getItem('waifu_reward_unlocked') === 'true'; 
-let sessionRewardShown = false; // 紀錄「這一次」脫下內褲後，是否已經彈出過福利圖
+// 🌟 追蹤福利相片狀態 (移除 localStorage，重整必定消失，必須重玩解鎖)
+let hasUnlockedReward = false; 
+let sessionRewardShown = false; 
 
 // 🔍 特寫功能狀態變數
 let isPipActive = false;              
@@ -290,11 +290,11 @@ function createTreatmentUI() {
   const div = document.createElement('div');
   div.id = 'treatment-ui';
   div.style.cssText = `
-    position: fixed; bottom: 180px; left: 50%; transform: translateX(-50%) scale(0.9);
+    position: fixed; left: 50%; transform: translateX(-50%) scale(0.9);
     background: rgba(15, 15, 20, 0.85); border: 2px solid #ff4d88; border-radius: 20px;
     padding: 16px 26px; display: none; flex-direction: column; align-items: center;
     gap: 14px; z-index: 10001; box-shadow: 0 8px 30px rgba(255, 77, 136, 0.45);
-    transition: opacity 0.4s ease-out, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+    transition: bottom 0.3s ease-out, opacity 0.4s ease-out, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
     opacity: 0; color: #ffffff; font-family: sans-serif; pointer-events: auto; user-select: none;
   `;
 
@@ -543,6 +543,12 @@ function resize() {
       btnMinus.style.width = btnSize; btnMinus.style.height = btnSize; btnMinus.style.fontSize = fontSize;
     }
 
+    // 🌟 動態調整治療控制台高度，電腦版剛好，手機版大幅拉高避免被遮擋
+    const treatUI = document.getElementById('treatment-ui');
+    if (treatUI) {
+      treatUI.style.bottom = isMobile ? '360px' : '180px';
+    }
+
     if (typeof updatePiPLayout === 'function') {
       updatePiPLayout();
     }
@@ -573,7 +579,7 @@ function createZoomButtons() {
     transition: transform 0.1s, box-shadow 0.2s;
   `;
 
-  // 🌟 永久福利庫按鈕 (根據 LocalStorage 決定是否顯示)
+  // 🌟 永久福利庫按鈕 (初始化絕對隱藏，必須遊玩解鎖)
   const btn18 = document.createElement('button');
   btn18.id = 'btn-reward-gallery';
   btn18.innerText = '18+';
@@ -582,9 +588,8 @@ function createZoomButtons() {
   btn18.style.color = '#ffffff';
   btn18.style.border = '2px solid #ffccdd';
   btn18.style.boxShadow = '0 0 15px rgba(255, 77, 136, 0.8)';
-  btn18.style.display = hasUnlockedReward ? 'flex' : 'none'; // 如果已解鎖，一進來就會顯示
+  btn18.style.display = hasUnlockedReward ? 'flex' : 'none'; 
   
-  // 修正事件避免穿透與觸控衝突
   btn18.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
   btn18.addEventListener('click', (e) => {
     e.preventDefault(); e.stopPropagation();
@@ -688,16 +693,14 @@ function triggerClimaxEvents(x, y) {
     spawnFloatingText(x, y + 40, "潮吹高潮！大量愛液狂噴...💧💧", "#00e5ff", 2500, "32px");
   }
   
-  // 第三階段核心：解決了「解鎖後就不再彈出福利圖」的 Bug
   if (param8PressCount === 30 && !sessionRewardShown) {
     sessionRewardShown = true; 
     if (!hasUnlockedReward) {
       hasUnlockedReward = true;
-      localStorage.setItem('waifu_reward_unlocked', 'true'); // 寫入 LocalStorage
       const btn18 = document.getElementById('btn-reward-gallery');
-      if (btn18) btn18.style.display = 'flex'; // 永久顯示按鈕
+      if (btn18) btn18.style.display = 'flex'; // 本次視窗永久解鎖顯示
     }
-    showRewardModal(); // 每次玩滿 30 次，依然動態彈出高潮獎勵
+    showRewardModal(); // 每次玩滿 30 次，動態彈出高潮獎勵
   }
 }
 
@@ -864,7 +867,6 @@ function updateParams() {
     }
   }
 
-  // 🌟【主要互動解耦隔離區塊】
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
     localSwipeCount++;
@@ -974,20 +976,23 @@ function updateParams() {
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
 
-  // 🌟 內褲穿上時：全面重置計數器與標記，確保下一次脫下時一切重新開始
+  // 🌟 內褲穿上時：全面重置計數器與液體狀態 (合腿時絕對不會消失，只在穿上內褲時清除)
   if (targetParam10 === 0) {
     targetParam12 = 0;
     localSwipeCount = 0;
     param8PressCount = 0; 
     hasTriggeredParam13Liquid = false; 
-    sessionRewardShown = false; // 關鍵修復：重置福利圖單次標記
+    sessionRewardShown = false; 
     isPipActive = false;
     pipManuallyClosed = false;
   }
 
-  currentParam12 = lerp(currentParam12, targetParam12, 0.02);
+  // 給予液體消失更快的平滑速度，避免卡住
+  let p12Speed = (targetParam12 === 0) ? 0.2 : 0.02;
+  currentParam12 = lerp(currentParam12, targetParam12, p12Speed);
   core.setParameterValueById("Param12", currentParam12);
 
+  // 🌟 關鍵修復：防漏液遮罩邏輯 (合腿時遮罩不會飆到 1.0 觸發特級液體)
   let finalParam13Target = 0;
   if (param8PressCount >= 25) {
     finalParam13Target = 1.0;
@@ -1002,7 +1007,10 @@ function updateParams() {
     } else {
       baseMaskOpacity = 0.0 + ((currentParam7 - 0.8) / 1.6) * 0.8;
     }
+    
     finalParam13Target = baseMaskOpacity * (1.0 - currentParam9);
+    // 🛡️ 防護罩：強制將未達高潮次數時的遮罩參數限制在 0.95，防止合腿時錯當 1.0 特級液體而漏液
+    if (finalParam13Target > 0.95) finalParam13Target = 0.95; 
   }
 
   currentParam13 = lerp(currentParam13, finalParam13Target, 0.15);
@@ -1231,7 +1239,6 @@ function setupInteraction() {
             } else {
               let nextClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
               targetClothes = nextClothes;
-              // 🌟 關鍵修復：如果在腿張開的情況下滑脫內褲，必須強制標記 targetParam10 = 1，否則不計數不出液體！
               if (nextClothes === 1 && !swipeActionTriggered) {
                   targetParam10 = 1;
                   swipeActionTriggered = true;
