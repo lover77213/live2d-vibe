@@ -351,24 +351,29 @@ function createBackgroundBio() {
 
   const bioDiv = document.createElement('div');
   bioDiv.id = 'background-bio';
+  // 🌟 排版至右上角，加入靠右對齊 (text-align: right)
   bioDiv.style.cssText = `
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 85%; max-width: 650px; z-index: 0; pointer-events: none; user-select: none;
+    position: fixed; top: 40px; right: 40px;
+    width: 85%; max-width: 500px; z-index: 0; pointer-events: none; user-select: none;
     color: #000000; font-size: 14px; line-height: 1.8; font-family: sans-serif;
-    text-align: center; opacity: 0.85; letter-spacing: 1px; font-weight: bold;
+    text-align: right; opacity: 0.75; letter-spacing: 1px; font-weight: bold;
   `;
 
+  // 🌟 置入指定的色氣獨白內容，配合排版斷行
   bioDiv.innerHTML = `
-    我是一個超級淫蕩的又沒有羞恥心的暴露色女，
-    明明知道女生的身體只有小穴是絕對不能被別人
-    看到的，我卻還是厚著臉皮做了這款遊戲……<br><br>
-    一想到我沒穿衣服被好多陌生人盡情瀏覽、玩弄
-    ，還能隨意把我的騷穴掰開來欣賞、截圖、評論
-    ，我就興奮到小穴一直流水，忍不住偷偷自慰高
-    潮了好幾次……<br><br>
-    可是我又好怕被認識的人發現……<br>
-    萬一被朋友、同學或是熟人看到我這副淫亂的模
-    樣，發現我其實是一個喜歡掰穴給別人看的變態
+    我是一個超級淫蕩的又沒有羞恥心的暴露色女，<br>
+    明明知道女生的身體只有小穴是絕對不能被別人<br>
+    看到的，我卻還是厚著臉皮做了這款遊戲…<br><br>
+    
+    一想到我沒穿衣服被好多陌生人盡情瀏覽、玩弄<br>
+    ，還能隨意把我的騷穴掰開來欣賞、截圖、評論<br>
+    ，我就興奮到小穴一直流水，忍不住偷偷自慰高<br>
+    潮了好幾次…<br><br>
+    
+    可是我又好怕被認識的人發現…<br><br>
+    
+    萬一被朋友、同學或是熟人看到我這副淫亂的模<br>
+    樣，發現我其實是一個喜歡掰穴給別人看的變態<br>
     暴露婊，應該會直接社死吧...
   `;
   document.body.appendChild(bioDiv);
@@ -571,7 +576,6 @@ function resize() {
       btnMinus.style.width = btnSize; btnMinus.style.height = btnSize; btnMinus.style.fontSize = fontSize;
     }
 
-    // 🌟 在這裡將電腦版（非 isMobile）的高度調降到 60px
     const treatUI = document.getElementById('treatment-ui');
     if (treatUI) {
       treatUI.style.bottom = isMobile ? '360px' : '60px';
@@ -811,7 +815,8 @@ function createInvisibleHitbox() {
 function setupPiP() {
   const isMobile = window.innerWidth < window.innerHeight;
   const dpr = window.devicePixelRatio || 1;
-  const superRes = isMobile ? Math.min(dpr * 1.5, 3) : Math.min(dpr * 2, 4);
+  // 🌟 強制提高特寫畫布的解析度倍率，讓畫面超高清
+  const superRes = isMobile ? Math.max(dpr * 2.5, 3) : Math.max(dpr * 3, 4);
 
   pipRenderTexture = PIXI.RenderTexture.create({
     width: window.innerWidth, height: window.innerHeight, resolution: superRes, scaleMode: PIXI.SCALE_MODES.LINEAR 
