@@ -13,8 +13,8 @@ let swipeAxis = null;
 let targetParam9 = 0, currentParam9 = 0; // 大腿狀態 (0=關閉, 1=打開)
 let targetParam10 = 0, currentParam10 = 0; // 內褲狀態 (0=穿著, 1=脫除)
 let targetParam11 = 0, currentParam11 = 0; // 次級互動參數 (0=隱藏, 1=絲滑顯示)
-let targetParam12 = 0, currentParam12 = 0; // 🌟 液體流出參數 1 (0=無, 1=絲滑流出)
-let targetParam13 = 0, currentParam13 = 0; // 🌟 液體流出參數 2 (0=無, 1=絲滑流出)
+let targetParam12 = 0, currentParam12 = 0; // 液體流出參數 1 (0=無, 1=絲滑流出)
+let targetParam13 = 0, currentParam13 = 0; // 液體流出參數 2 (0=無, 1=絲滑流出)
 let targetClothes = -1, currentClothes = -1;  
 let targetParam7 = -1, currentParam7 = -1;    
 let targetParam5 = -1, currentParam5 = -1;    
@@ -39,11 +39,11 @@ let param5HoldStartTime = 0;
 let isHoldingForParam8 = false; 
 let lockHistory = [];          
 let lastTapTime = 0;
-let lastExecutionTime = 0; // 🌟 核心防禦：防止多圖層事件冒泡導致雙擊被觸發兩次
+let lastExecutionTime = 0; // 核心防禦：防止多圖層事件冒泡導致雙擊被觸發兩次
 let pointerDownStartTime = 0; 
 let swipeActionTriggered = false; // 確保單次滑動手勢僅觸發單一階段變更
 let legsWereOpenAtStart = false;  // 記錄每次觸碰開始時大腿的開合狀態，建立手勢隔離防禦網
-let localSwipeCount = 0;          // 🌟 紀錄本機掰穴次數，用來觸發液體流出
+let localSwipeCount = 0;          // 紀錄本機掰穴次數，用來觸發液體流出
 
 // 📊 全網實時計數器狀態 (徹底拔除本機暫存，100% 信任雲端與台灣時間結算)
 let globalTotalCount = 0;
@@ -252,44 +252,8 @@ function syncWithCloud() {
     });
 }
 
-function incrementGlobalCount() {
-  globalTotalCount++;
-  globalDailyCount++;
-  updateCounterUI(globalTotalCount, globalDailyCount, globalViewsTotal, globalViewsDaily);
-  
-  const ts = Date.now();
-  const currentDate = getTaiwanDateString();
-
-  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`);
-  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`);
-  fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${ts}`);
-}
-
-function updateCounterUI(serverTotal, serverDaily, serverViewsTotal, serverViewsDaily) {
-  if (!isCounterInitialized && serverTotal > 0) {
-    displayedTotalCount = serverTotal;
-    displayedDailyCount = serverDaily;
-    displayedViewsTotal = serverViewsTotal || 0;
-    displayedViewsDaily = serverViewsDaily || 0;
-    isCounterInitialized = true;
-  }
-
-  if (serverTotal > globalTotalCount) globalTotalCount = serverTotal;
-  if (serverDaily > globalDailyCount) globalDailyCount = serverDaily;
-  if (serverViewsTotal > globalViewsTotal) globalViewsTotal = serverViewsTotal;
-  if (serverViewsDaily > globalViewsDaily) globalViewsDaily = serverViewsDaily;
-  
-  const counterDiv = document.getElementById('global-counter-ui');
-  if (counterDiv) {
-    counterDiv.style.transform = 'translateX(-50%) scale(1.06)';
-    setTimeout(() => {
-      if (counterDiv) counterDiv.style.transform = 'translateX(-50%) scale(1)';
-    }, 120);
-  }
-}
-
 /**
- * 🌟 全域核心功能：抽離並封裝螢幕任何地方均適用的「雙擊階梯還原鏈」機制
+ * 🌟 全域核心功能：階梯式雙擊還原鏈 (已整合至 Window 實現全螢幕無死角判定)
  */
 function handleGlobalDoubleTap(clientX, clientY) {
   const currentTime = Date.now();
@@ -325,6 +289,42 @@ function handleGlobalDoubleTap(clientX, clientY) {
     }
   }
   lastTapTime = currentTime;
+}
+
+function incrementGlobalCount() {
+  globalTotalCount++;
+  globalDailyCount++;
+  updateCounterUI(globalTotalCount, globalDailyCount, globalViewsTotal, globalViewsDaily);
+  
+  const ts = Date.now();
+  const currentDate = getTaiwanDateString();
+
+  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`);
+  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`);
+  fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${ts}`);
+}
+
+function updateCounterUI(serverTotal, serverDaily, serverViewsTotal, serverViewsDaily) {
+  if (!isCounterInitialized && serverTotal > 0) {
+    displayedTotalCount = serverTotal;
+    displayedDailyCount = serverDaily;
+    displayedViewsTotal = serverViewsTotal || 0;
+    displayedViewsDaily = serverViewsDaily || 0;
+    isCounterInitialized = true;
+  }
+
+  if (serverTotal > globalTotalCount) globalTotalCount = serverTotal;
+  if (serverDaily > globalDailyCount) globalDailyCount = serverDaily;
+  if (serverViewsTotal > globalViewsTotal) globalViewsTotal = serverViewsTotal;
+  if (serverViewsDaily > globalViewsDaily) globalViewsDaily = serverViewsDaily;
+  
+  const counterDiv = document.getElementById('global-counter-ui');
+  if (counterDiv) {
+    counterDiv.style.transform = 'translateX(-50%) scale(1.06)';
+    setTimeout(() => {
+      if (counterDiv) counterDiv.style.transform = 'translateX(-50%) scale(1)';
+    }, 120);
+  }
 }
 
 /**
@@ -499,8 +499,6 @@ function createInvisibleHitbox() {
   `;
 
   hitbox.addEventListener('pointerdown', (e) => {
-    handleGlobalDoubleTap(e.clientX, e.clientY);
-
     if (isParam7Locked && targetParam9 === 1) {
       isOnModel = true;
       pointerDownStartTime = Date.now(); 
@@ -651,7 +649,7 @@ function updateParams() {
     }
   }
 
-  // 🌟 全網計數器與階段性液體溢出累加判定
+  // 全網計數器與階段性液體溢出累加判定
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
     incrementGlobalCount(); 
@@ -659,10 +657,10 @@ function updateParams() {
     localSwipeCount++;
     if (targetParam10 === 1) { // 僅在沒穿內褲時累積液體階段
       if (localSwipeCount > 5) {
-        targetParam12 = 1; // 🔓 超過 5 次流出液體 1
+        targetParam12 = 1; // 超過 5 次流出液體 1
       }
       if (localSwipeCount > 10) {
-        targetParam13 = 1; // 🔓 超過 10 次流出液體 2
+        targetParam13 = 1; // 超過 10 次流出液體 2
       }
     }
   }
@@ -702,14 +700,14 @@ function updateParams() {
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
 
-  // 🌟 核心功能修改：內褲穿回判定（只要穿回內褲 targetParam10 === 0，液體立刻緩慢回收消失，並重置本機計數）
+  // 內褲穿回判定（只要穿回內褲 targetParam10 === 0，液體立刻緩慢回收消失，並重置本機計數）
   if (targetParam10 === 0) {
     targetParam12 = 0;
     targetParam13 = 0;
     localSwipeCount = 0;
   }
 
-  // 🌟 液體 1 與液體 2 動態插值更新 (均以 0.02 速度極致緩慢爬升流出或收回)
+  // 液體 1 與液體 2 動態插值更新 (均以 0.02 速度極致緩慢爬升流出或收回)
   currentParam12 = lerp(currentParam12, targetParam12, 0.02);
   core.setParameterValueById("Param12", currentParam12);
 
@@ -826,8 +824,11 @@ function startEyeLookLoop() {
 function setupInteraction() {
   app.view.style.touchAction = "none";
 
-  // 全螢幕點擊核心代理：雙擊螢幕任何地方均可精準響應階梯還原鏈
-  app.view.addEventListener('pointerdown', (e) => {
+  // 🌟 終極優化：改為監聽最高層級 window，實現真正全螢幕、跨圖層無死角的雙擊還原判定
+  window.addEventListener('pointerdown', (e) => {
+    // 防誤觸：如果點擊的是右下角縮放控制元件，直接跳過還原鏈判定
+    if (e.target && e.target.closest('#zoom-container')) return;
+    
     handleGlobalDoubleTap(e.clientX, e.clientY);
   });
 
