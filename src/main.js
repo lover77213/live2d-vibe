@@ -218,7 +218,7 @@ function setupCounter() {
   updateCounterLayout(); 
   triggerPageView();
   syncWithCloud();
-  setInterval(syncWithCloud, 4000);
+  setInterval(syncWithCloud, 3000); // 縮短為每 3 秒對齊一次
 }
 
 function updateCounterLayout() {
@@ -309,7 +309,7 @@ function createTreatmentUI() {
   `;
 
   div.innerHTML = `
-    <div style="font-weight: 900; color: #ffb3c6; font-size: 15px; text-shadow: 0 0 8px rgba(255,179,198,0.6); letter-spacing: 1px;">小穴治療控制台</div>
+    <div style="font-weight: 900; color: #ffb3c6; font-size: 15px; text-shadow: 0 0 8px rgba(255,179,198,0.6); letter-spacing: 1px;">🩹 陰部外翻腫脹治療控制台</div>
     <div style="display: flex; gap: 16px;">
       <button id="btn-treat-open" style="background: linear-gradient(135deg, #ff4d88, #ff85a2); border: none; color: white; padding: 10px 22px; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 12px rgba(255,77,136,0.35); transition: transform 0.1s; font-size: 14px;">👐 掰開</button>
       <button id="btn-treat-medicine" style="background: #555555; border: none; color: white; padding: 10px 22px; border-radius: 12px; cursor: not-allowed; font-weight: bold; opacity: 0.5; transition: all 0.2s; font-size: 14px;">🧴 擦藥</button>
@@ -394,13 +394,17 @@ function showRewardModal() {
 }
 
 function triggerPageView() {
-  const dailyViewsKey = `site_views_${getTaiwanDateString()}`; // 動態寫入每日 Key
-  fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}`), { cache: 'no-store' }).catch(() => {});
-  fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${dailyViewsKey}`), { cache: 'no-store' }).catch(() => {});
+  const dailyViewsKey = `site_views_${getTaiwanDateString()}`;
+  safeFetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}`).then(data => {
+      if (data && data.value) globalViewsTotal = Math.max(globalViewsTotal, data.value);
+  });
+  safeFetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${dailyViewsKey}`).then(data => {
+      if (data && data.value) globalViewsDaily = Math.max(globalViewsDaily, data.value);
+  });
 }
 
+// 🌟 真實時同步伺服器
 function syncWithCloud() {
-  // 🌟 使用當天日期作為獨立 Key，徹底解決換日同步卡死的問題
   const dailyClicksKey = `interactive_clicks_${getTaiwanDateString()}`;
   const dailyViewsKey = `site_views_${getTaiwanDateString()}`;
 
@@ -410,21 +414,18 @@ function syncWithCloud() {
     safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}`),
     safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${dailyViewsKey}`)
   ]).then(([totalData, dailyData, totalViews, dailyViews]) => {
-    const tVal = totalData && typeof totalData.value === 'number' ? totalData.value : globalTotalCount;
-    const dVal = dailyData && typeof dailyData.value === 'number' ? dailyData.value : 0; // 若為新日期會自動回傳空/0
-    const tvVal = totalViews && typeof totalViews.value === 'number' ? totalViews.value : globalViewsTotal;
-    const dvVal = dailyViews && typeof dailyViews.value === 'number' ? dailyViews.value : 0;
+    const tVal = totalData && typeof totalData.value === 'number' ? totalData.value : -1;
+    const dVal = dailyData && typeof dailyData.value === 'number' ? dailyData.value : -1;
+    const tvVal = totalViews && typeof totalViews.value === 'number' ? totalViews.value : -1;
+    const dvVal = dailyViews && typeof dailyViews.value === 'number' ? dailyViews.value : -1;
 
-    // 只要雲端數字比較大，強制更新到網頁上 (解決多裝置不同步)
-    let needsUpdate = false;
-    if (tVal > globalTotalCount) { globalTotalCount = tVal; needsUpdate = true; }
-    if (dVal > globalDailyCount) { globalDailyCount = dVal; needsUpdate = true; }
-    if (tvVal > globalViewsTotal) { globalViewsTotal = tvVal; needsUpdate = true; }
-    if (dvVal > globalViewsDaily) { globalViewsDaily = dvVal; needsUpdate = true; }
+    const isIdle = (Date.now() - lastTapTime) > 3000;
 
-    if (needsUpdate) {
-      updateCounterUI(globalTotalCount, globalDailyCount, globalViewsTotal, globalViewsDaily);
-    }
+    // 若閒置超過 3 秒，允許數值向下平滑修正以完美吻合伺服器；若正在點擊，則只取最大值。
+    if (tVal !== -1) globalTotalCount = isIdle ? tVal : Math.max(globalTotalCount, tVal);
+    if (dVal !== -1) globalDailyCount = isIdle ? dVal : Math.max(globalDailyCount, dVal);
+    if (tvVal !== -1) globalViewsTotal = isIdle ? tvVal : Math.max(globalViewsTotal, tvVal);
+    if (dvVal !== -1) globalViewsDaily = isIdle ? dvVal : Math.max(globalViewsDaily, dvVal);
   }).catch(() => {});
 }
 
@@ -466,33 +467,27 @@ function handleGlobalDoubleTap(clientX, clientY) {
   lastTapTime = currentTime;
 }
 
+// 🌟 改寫：觸發特效並獲取精確回傳值
 function incrementGlobalCount() {
   globalTotalCount++;
   globalDailyCount++;
-  updateCounterUI(globalTotalCount, globalDailyCount, globalViewsTotal, globalViewsDaily);
-  
-  const dailyClicksKey = `interactive_clicks_${getTaiwanDateString()}`; // 動態寫入每日 Key
-
-  fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}`), { cache: 'no-store' }).catch(() => {});
-  fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${dailyClicksKey}`), { cache: 'no-store' }).catch(() => {});
-}
-
-function updateCounterUI(serverTotal, serverDaily, serverViewsTotal, serverViewsDaily) {
-  if (serverTotal > globalTotalCount) globalTotalCount = serverTotal;
-  if (serverDaily > globalDailyCount) globalDailyCount = serverDaily;
-  if (serverViewsTotal > globalViewsTotal) globalViewsTotal = serverViewsTotal;
-  if (serverViewsDaily > globalViewsDaily) globalViewsDaily = serverViewsDaily;
   
   const counterDiv = document.getElementById('global-counter-ui');
   if (counterDiv) {
     const isMobile = window.innerWidth < window.innerHeight;
     const baseTransform = isMobile ? 'translateX(-50%)' : 'none';
-    
     counterDiv.style.transform = `${baseTransform} scale(1.06)`;
-    setTimeout(() => {
-      if (counterDiv) counterDiv.style.transform = `${baseTransform} scale(1)`;
-    }, 120);
+    setTimeout(() => { if (counterDiv) counterDiv.style.transform = `${baseTransform} scale(1)`; }, 120);
   }
+  
+  const dailyClicksKey = `interactive_clicks_${getTaiwanDateString()}`;
+
+  safeFetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}`).then(data => {
+      if (data && data.value) globalTotalCount = Math.max(globalTotalCount, data.value);
+  });
+  safeFetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${dailyClicksKey}`).then(data => {
+      if (data && data.value) globalDailyCount = Math.max(globalDailyCount, data.value);
+  });
 }
 
 function resize() {
@@ -684,7 +679,7 @@ function createZoomButtons() {
   });
 
   // 加入順序：18+ -> IG -> 特寫🔍 -> x2 -> ＋ -> －
-  container.appendChild(btn18); // 把 18+ 移到最上方
+  container.appendChild(btn18); 
   container.appendChild(btnIg);
   container.appendChild(btnPip); 
   container.appendChild(btnX2);
@@ -872,30 +867,18 @@ function updateParams() {
     hitbox.style.display = (isParam7Locked && targetParam9 === 1) ? 'block' : 'none';
   }
 
+  // 🌟 雙向平滑修正計數器 (Lerp Counter) - 能平滑地對齊伺服器被降落的數字
   if (isCounterInitialized) {
-    if (displayedTotalCount < globalTotalCount) {
-      let diff = globalTotalCount - displayedTotalCount;
-      if (diff < 1) displayedTotalCount = globalTotalCount;
-      else displayedTotalCount += Math.max(1, Math.floor(diff * 0.08)); 
-    } else { displayedTotalCount = globalTotalCount; }
+    const lerpCounter = (disp, target) => {
+      if (disp < target) return disp + Math.max(1, Math.floor((target - disp) * 0.08));
+      if (disp > target) return disp - Math.max(1, Math.floor((disp - target) * 0.08));
+      return target;
+    };
 
-    if (displayedDailyCount < globalDailyCount) {
-      let diff = globalDailyCount - displayedDailyCount;
-      if (diff < 1) displayedDailyCount = globalDailyCount;
-      else displayedDailyCount += Math.max(1, Math.floor(diff * 0.08));
-    } else { displayedDailyCount = globalDailyCount; }
-
-    if (displayedViewsTotal < globalViewsTotal) {
-      let diff = globalViewsTotal - displayedViewsTotal;
-      if (diff < 1) displayedViewsTotal = globalViewsTotal;
-      else displayedViewsTotal += Math.max(1, Math.floor(diff * 0.08));
-    } else { displayedViewsTotal = globalViewsTotal; }
-
-    if (displayedViewsDaily < globalViewsDaily) {
-      let diff = globalViewsDaily - displayedViewsDaily;
-      if (diff < 1) displayedViewsDaily = globalViewsDaily;
-      else displayedViewsDaily += Math.max(1, Math.floor(diff * 0.08));
-    } else { displayedViewsDaily = globalViewsDaily; }
+    displayedTotalCount = lerpCounter(displayedTotalCount, globalTotalCount);
+    displayedDailyCount = lerpCounter(displayedDailyCount, globalDailyCount);
+    displayedViewsTotal = lerpCounter(displayedViewsTotal, globalViewsTotal);
+    displayedViewsDaily = lerpCounter(displayedViewsDaily, globalViewsDaily);
 
     let currentFloorTotal = Math.floor(displayedTotalCount);
     let currentFloorDaily = Math.floor(displayedDailyCount);
@@ -937,7 +920,6 @@ function updateParams() {
       swipeCounterForSwelling++;
       if (swipeCounterForSwelling >= 15) {
         targetParam14 = 0.5; 
-        // 🌟 已加上驚嘆號並修改為 5000 毫秒 (5秒)
         spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.5, "小穴被你掰到外翻腫起來了！", "#ff3366", 5000, "32px");
       }
     }
