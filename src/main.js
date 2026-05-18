@@ -38,7 +38,7 @@ let isHoldingForParam8 = false;
 let lockHistory = [];          
 let lastTapTime = 0;
 let pointerDownStartTime = 0; 
-let swipeActionTriggered = false; // 🌟 核心新增：確保單次滑動手勢僅觸發單一階段變更
+let swipeActionTriggered = false; // 確保單次滑動手勢僅觸發單一階段變更
 
 // 📊 全網實時計數器狀態 (徹底拔除本機暫存，100% 信任雲端與台灣時間結算)
 let globalTotalCount = 0;
@@ -605,8 +605,15 @@ function updateParams() {
   currentParam10 = lerp(currentParam10, targetParam10, 0.15);
   core.setParameterValueById("Param10", currentParam10);
 
-  // Param11 絲滑加載插值
-  currentParam11 = lerp(currentParam11, targetParam11, 0.15);
+  // 🌟 核心規則安全網：大腿一旦被判定張開 (targetParam9 === 1)，Param11 必須強制實時歸零
+  if (targetParam9 === 1) {
+    targetParam11 = 0;
+  }
+
+  // 🌟 Param11 絲滑加載插值優化
+  // 速度調校：當大腿被掰開時，以 0.45 的高速完成漸隱消失，確保比大腿張開速度 (0.15) 還要敏捷、完全不露底！
+  let p11Speed = (targetParam9 === 1) ? 0.45 : 0.15;
+  currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
 
   if (targetParam5 === 1 && !isParam6Triggered) {
@@ -759,7 +766,7 @@ function setupInteraction() {
     startX = e.data.originalEvent.clientX || e.data.global.x; 
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
-    swipeActionTriggered = false; // 🌟 每次重新點擊時，重置單次手勢鎖定鎖
+    swipeActionTriggered = false; // 每次重新點擊時，重置單次手勢鎖定鎖
   });
   
   window.addEventListener('pointermove', (e) => {
@@ -780,33 +787,32 @@ function setupInteraction() {
         // 1. 橫向滑動：正常掰開大腿
         if (swipeAxis === 'x' && Math.abs(diffX) > 40 && !swipeActionTriggered) {
           targetParam9 = 1;
+          targetParam11 = 0; // 🌟 核心修正：掰開大腿的瞬間，立刻斬斷並歸零 Param11 的目標狀態！
           swipeActionTriggered = true;
           spawnFloatingText(e.clientX, e.clientY, "把腿掰開了...❤️ (解鎖玩法)", "#ffb3c6", 1800, "28px");
         } 
         // 2. 縱向滑動：內褲與 Param11 階梯式多段控制核心 (配合手勢鎖保護)
         else if (swipeAxis === 'y' && !swipeActionTriggered) {
-          // ⬆️ 向上滑動機制 (一趟滑動僅變更一個階段)
+          // ⬆️ 向上滑動機制
           if (diffY > 40) {
             if (targetParam10 === 0) {
               targetParam10 = 1;
               targetClothes = 1; 
-              swipeActionTriggered = true; // 鎖定本次手勢，禁止在同一趟滑動中直接執行下一步
+              swipeActionTriggered = true; 
               spawnFloatingText(e.clientX, e.clientY, "內褲被脫掉了...👙", "#ff69b4", 1800, "28px");
             } else if (targetParam10 === 1 && targetParam11 === 0) {
-              // 🌟 獨立判定：內褲已經消失了，下一次獨立的向上滑動才會觸發 Param11
               targetParam11 = 1;
               swipeActionTriggered = true;
               spawnFloatingText(e.clientX, e.clientY, "絲滑露出...✨", "#ffb3c6", 1800, "28px");
             }
           } 
-          // ⬇️ 向下滑動機制 (一趟滑動僅變更一個階段)
+          // ⬇️ 向下滑動機制
           else if (diffY < -40) {
             if (targetParam11 === 1) {
               targetParam11 = 0;
               swipeActionTriggered = true;
               spawnFloatingText(e.clientX, e.clientY, "遮起來了...🙈", "#ffb3c6", 1800, "28px");
             } else if (targetParam11 === 0 && targetParam10 === 1) {
-              // 🌟 獨立判定：Param11 已經歸 0 了，下一次獨立的向下滑動才會穿回內褲
               targetParam10 = 0;
               targetClothes = -1; 
               isParam2Locked = false;
@@ -862,7 +868,7 @@ function setupInteraction() {
     pointerDownStartTime = 0; 
     swipeAxis = null;
     isHoldingForParam8 = false;
-    swipeActionTriggered = false; // 🌟 手指完全抬起，釋放操作鎖
+    swipeActionTriggered = false; // 手指完全抬起，釋放操作鎖
 
     if (targetParam9 === 1) {
       if (targetClothes === 1 && !isParam2Locked) { isParam2Locked = true; lockHistory.push('Param2'); }
