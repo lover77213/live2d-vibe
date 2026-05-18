@@ -45,6 +45,13 @@ const KEY_DAILY = 'interactive_clicks_daily';
 const KEY_LAST_DATE = 'interactive_last_date'; // 用於記錄最後同步的台灣日期
 const ABACUS_URL = 'https://abacus.jasoncameron.dev';
 
+// 📈 實時滾動數字特效狀態變數
+let displayedTotalCount = 0;
+let displayedDailyCount = 0;
+let isCounterInitialized = false; // 用於防止首次載入時從 0 瘋狂滾動到幾百萬
+let lastRenderedTotal = -1;
+let lastRenderedDaily = -1;
+
 let userScaleOffset = 0.5; 
 let zoomDirection = 0; 
 
@@ -126,7 +133,6 @@ function hideLoadingUI() {
  */
 function getTaiwanDateString() {
   const d = new Date();
-  // 轉換為台灣時間的整數時間戳
   const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
   const twTime = new Date(utc + (3600000 * 8));
   const yyyy = twTime.getFullYear();
@@ -166,7 +172,6 @@ function setupCounter() {
   `;
   document.body.appendChild(counterDiv);
 
-  // 初始化雙層顯示結構
   counterDiv.innerHTML = `
     <div style="font-size: 16px; color: #ffb3c6;">今日被掰穴次數: <span id="count-daily" style="font-size: 18px; color: #ffb3c6;">...</span></div>
     <div style="font-size: 18px; color: #ffffff; border-top: 1px solid rgba(255, 179, 198, 0.3); padding-top: 4px; margin-top: 2px;">
@@ -185,35 +190,27 @@ function syncWithCloud() {
   const ts = Date.now();
   const currentDate = getTaiwanDateString();
 
-  // 1. 先確認伺服器上記錄的最後日期，用來判斷是否跨天
   fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?_=${ts}`)
     .then(res => res.json())
     .then(dateData => {
       const serverSavedDate = dateData && dateData.value ? String(dateData.text || dateData.value) : currentDate;
 
-      // 如果雲端日期與當前台灣日期不同，代表到了台灣時間隔天，執行跨天歸零結算
       if (serverSavedDate !== currentDate) {
-        // 將舊日計數器的值讀出來，加到總計數器中，隨後將日計數器重置為 0
         fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`)
           .then(res => res.json())
           .then(dailyData => {
             const expiredDailyValue = (dailyData && dailyData.value) ? dailyData.value : 0;
             
-            // 將過期數值疊加到總計數器中
             if (expiredDailyValue > 0) {
               fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?step=${expiredDailyValue}&_=${Date.now()}`);
             }
-            // 重置日計數器為 0 (透過更新 API 覆蓋)
             fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_DAILY}?value=0&_=${Date.now()}`);
-            // 更新伺服器日期標籤為新的一天
             fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${Date.now()}`);
             
-            // 本地立即更新反應
             globalDailyCount = 0;
             updateCounterUI(globalTotalCount + expiredDailyValue, 0);
           }).catch(() => {});
       } else {
-        // 日期正常，常規獲取最新的日次數與總次數
         Promise.all([
           fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`).then(r => r.json()),
           fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`).then(r => r.json())
@@ -225,7 +222,6 @@ function syncWithCloud() {
       }
     })
     .catch(() => {
-      // 降級常規獲取
       fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`)
         .then(res => res.json()).then(d => d && updateCounterUI(d.value, globalDailyCount)).catch(() => {});
     });
@@ -242,24 +238,23 @@ function incrementGlobalCount() {
   const ts = Date.now();
   const currentDate = getTaiwanDateString();
 
-  // 同步向雲端雙通道 HITS 觸發
   fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`);
   fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`);
-  // 順便修正/確保當前的雲端日期錨點是正確的
   fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${ts}`);
 }
 
 function updateCounterUI(serverTotal, serverDaily) {
+  // 🌟 核心初次載入判定：防止數字從 0 一路暴滾到幾百萬，第一次抓取直接對齊
+  if (!isCounterInitialized && serverTotal > 0) {
+    displayedTotalCount = serverTotal;
+    displayedDailyCount = serverDaily;
+    isCounterInitialized = true;
+  }
+
   if (serverTotal > globalTotalCount) globalTotalCount = serverTotal;
   if (serverDaily > globalDailyCount) globalDailyCount = serverDaily;
   
-  const dailyEl = document.getElementById('count-daily');
-  const totalEl = document.getElementById('count-total');
   const counterDiv = document.getElementById('global-counter-ui');
-  
-  if (dailyEl) dailyEl.innerText = globalDailyCount;
-  if (totalEl) totalEl.innerText = globalTotalCount;
-  
   if (counterDiv) {
     counterDiv.style.transform = 'translateX(-50%) scale(1.08)';
     setTimeout(() => {
@@ -320,7 +315,7 @@ function resize() {
 }
 
 /**
- * 🎨 建立長按縮放與可反悔切換的 X2 兩倍放大按鈕
+ * 🎨 建立長按縮放與可反悔切換的小寫 x2 兩倍放大按鈕
  */
 function createZoomButtons() {
   if (document.getElementById('zoom-container')) return; 
@@ -339,21 +334,21 @@ function createZoomButtons() {
     user-select: none; touch-action: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
   `;
 
-  // 🌟 已優化：支援再度點擊 X2 按鈕恢復原狀（0.5 預設大小）
+  // 🌟 修正：按鈕文字由大寫 X2 修改為小寫 x2 
   const btnX2 = document.createElement('button');
   btnX2.id = 'btn-zoom-x2';
-  btnX2.innerText = 'X2';
+  btnX2.innerText = 'x2'; 
   btnX2.style.cssText = btnStyle;
   btnX2.style.color = '#ffb3c6'; 
   
   btnX2.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     if (userScaleOffset === 1.0) {
-      userScaleOffset = 0.5; // 如果已經是2倍，再點一次恢復原狀 (0.5)
-      btnX2.style.color = '#ffb3c6'; // 恢復原本的粉色
+      userScaleOffset = 0.5; 
+      btnX2.style.color = '#ffb3c6'; 
     } else {
-      userScaleOffset = 1.0; // 放大為 2 倍
-      btnX2.style.color = '#ff4d88'; // 變成深粉亮色代表正在啟用 X2
+      userScaleOffset = 1.0; 
+      btnX2.style.color = '#ff4d88'; 
     }
     resize();
     if (app.render) app.render();
@@ -592,7 +587,7 @@ function updatePiPLayout() {
 }
 
 /**
- * ⚙️ 更新所有 Live2D 參數
+ * ⚙️ 更新所有 Live2D 參數與 UI 數字滾動動畫
  */
 function updateParams() {
   if (zoomDirection !== 0) {
@@ -606,7 +601,43 @@ function updateParams() {
     hitbox.style.display = isParam7Locked ? 'block' : 'none';
   }
 
-  // 🌟 全網計數器觸發判定 (加算到今日與總計)
+  // 🌟 1. 全網實時「數字平滑滾動動畫 (Lerp Catch-up)」核心驅動
+  if (isCounterInitialized) {
+    // 總計數滾動
+    if (displayedTotalCount < globalTotalCount) {
+      let diff = globalTotalCount - displayedTotalCount;
+      if (diff < 1) displayedTotalCount = globalTotalCount;
+      else displayedTotalCount += Math.max(1, Math.floor(diff * 0.08)); // 每幀追趕剩餘差距的 8%
+    } else {
+      displayedTotalCount = globalTotalCount;
+    }
+
+    // 今日計數滾動
+    if (displayedDailyCount < globalDailyCount) {
+      let diff = globalDailyCount - displayedDailyCount;
+      if (diff < 1) displayedDailyCount = globalDailyCount;
+      else displayedDailyCount += Math.max(1, Math.floor(diff * 0.08));
+    } else {
+      displayedDailyCount = globalDailyCount;
+    }
+
+    // 🌟 節流優化：只有當無條件捨去後的整數值真正改變時，才觸發 DOM 操作，極致省電
+    let currentFloorTotal = Math.floor(displayedTotalCount);
+    let currentFloorDaily = Math.floor(displayedDailyCount);
+
+    if (currentFloorDaily !== lastRenderedDaily) {
+      const dailyEl = document.getElementById('count-daily');
+      if (dailyEl) dailyEl.innerText = currentFloorDaily;
+      lastRenderedDaily = currentFloorDaily;
+    }
+    if (currentFloorTotal !== lastRenderedTotal) {
+      const totalEl = document.getElementById('count-total');
+      if (totalEl) totalEl.innerText = currentFloorTotal;
+      lastRenderedTotal = currentFloorTotal;
+    }
+  }
+
+  // 🌟 全網計數器觸發判定
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
     incrementGlobalCount(); 
@@ -615,7 +646,6 @@ function updateParams() {
   // 🔍 更新局部特寫畫中畫
   if (pipContainer) {
     let pipTargetAlpha = 0.0;
-    
     if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1000)) {
       pipTargetAlpha = 1.0;
     } 
@@ -654,7 +684,6 @@ function updateParams() {
   }
 
   let p8Target = 0.0;
-  
   if ((isHoldingForParam8 && isParam7Locked) || targetParam5 > 0) {
     if (isHoldingForParam8 && isParam7Locked) p8Target = 3.0; 
     targetEyeY = -1.0;      
