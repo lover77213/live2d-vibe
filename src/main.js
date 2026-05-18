@@ -55,6 +55,10 @@ let isPipActive = false;              // 特寫目前是否為開啟狀態
 let pipManuallyClosed = false;        // 標記玩家是否手動長按關閉過特寫
 let longPressTriggeredThisHold = false; // 防抖鎖，確保單次長按只觸發一次切換
 
+// DOM 狀態快照暫存器（效能優化防守網，避免頻繁渲染）
+let lastTreatUIDisplay = "";
+let lastBtnMedicineStyle = "";
+
 // 📊 全網實時計數器狀態 (徹底拔除本機暫存，100% 信任雲端與台灣時間結算)
 let globalTotalCount = 0;
 let globalDailyCount = 0;
@@ -333,7 +337,7 @@ function createTreatmentUI() {
 }
 
 /**
- * 🌟 👑 新增功能：動態全螢幕福利解鎖彈窗 UI 系統
+ * 🌟 動態全螢幕福利解鎖彈窗 UI 系統 (極致調教優化版)
  */
 function showRewardModal() {
   if (document.getElementById('reward-modal-ui')) return;
@@ -342,27 +346,26 @@ function showRewardModal() {
   modal.id = 'reward-modal-ui';
   modal.style.cssText = `
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(10, 10, 12, 0.92); display: flex; flex-direction: column;
-    justify-content: center; align-items: center; z-index: 10005; pointer-events: auto;
-    opacity: 0; transition: opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1); user-select: none;
+    background: rgba(10, 10, 15, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    display: flex; flex-direction: column; justify-content: center; align-items: center; 
+    z-index: 10005; pointer-events: auto; opacity: 0; 
+    transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1); user-select: none;
   `;
 
-  // ⚠️ 貼心提示：src請放您專案中的裸照或福利照路徑，例如 "public/model/reward.jpg"
   modal.innerHTML = `
-    <div style="position: relative; max-width: 85vw; max-height: 75vh; border: 3px solid #ff4d88; border-radius: 24px; overflow: hidden; box-shadow: 0 0 35px rgba(255, 77, 136, 0.65); background: #000000; display: flex; justify-content: center; align-items: center;">
+    <div style="position: relative; max-width: 90vw; max-height: 75vh; border: 3px solid #ff4d88; border-radius: 24px; overflow: hidden; box-shadow: 0 0 40px rgba(255, 77, 136, 0.7); background: #000000; display: flex; justify-content: center; align-items: center;">
       <img src="public/model/reward.jpg" alt="終極福利解鎖" style="max-width: 100%; max-height: 75vh; object-fit: contain; display: block;">
-      <div id="btn-close-reward" style="position: absolute; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.75); color: #ffffff; border: 2px solid #ffb3c6; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-family: sans-serif; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: transform 0.1s;">✕</div>
+      <div id="btn-close-reward" style="position: absolute; top: 16px; right: 16px; background: rgba(0, 0, 0, 0.75); color: #ffffff; border: 2px solid #ffb3c6; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-family: sans-serif; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s;">✕</div>
     </div>
-    <div style="color: #ffb3c6; font-size: 26px; font-weight: 900; margin-top: 25px; text-shadow: 0 0 12px rgba(255, 179, 198, 0.85); font-family: sans-serif; letter-spacing: 2px; text-align: center;">🎉 經液廁所極度高潮！大滿足福利照片解鎖 🎉</div>
+    <div style="color: #ffb3c6; font-size: 24px; font-weight: 900; margin-top: 25px; text-shadow: 0 0 12px rgba(255, 179, 198, 0.85); font-family: sans-serif; letter-spacing: 2px; text-align: center; padding: 0 20px; line-height: 1.4;">🎉 經液廁所極度高潮！大滿足福利照片解鎖 🎉</div>
   `;
   document.body.appendChild(modal);
 
-  // 強制渲染緩衝淡入
-  modal.offsetHeight;
+  modal.offsetHeight; // 觸發重繪機制以執行過渡動畫
   modal.style.opacity = '1';
 
   const closeBtn = document.getElementById('btn-close-reward');
-  closeBtn.addEventListener('mouseenter', () => { closeBtn.style.transform = 'scale(1.1)'; closeBtn.style.color = '#ff4d88'; });
+  closeBtn.addEventListener('mouseenter', () => { closeBtn.style.transform = 'scale(1.15)'; closeBtn.style.color = '#ff4d88'; });
   closeBtn.addEventListener('mouseleave', () => { closeBtn.style.transform = 'scale(1)'; closeBtn.style.color = '#ffffff'; });
   
   closeBtn.addEventListener('click', (e) => {
@@ -693,7 +696,6 @@ function createInvisibleHitbox() {
       legsWereOpenAtStart = (targetParam9 === 1); 
       longPressTriggeredThisHold = false; 
 
-      // 點按隱形判定區時累積高潮液體計數
       if (targetParam10 === 1) {
         param8PressCount++;
         if (param8PressCount >= 10 && targetParam12 === 0) {
@@ -704,7 +706,6 @@ function createInvisibleHitbox() {
           hasTriggeredParam13Liquid = true;
           spawnFloatingText(e.clientX, e.clientY - 30, "潮吹高潮！大量愛液狂噴...💧💧", "#00e5ff", 2500, "32px");
         }
-        // 🌟 隱形區域點擊同時檢測第 30 次福利裸照解鎖
         if (param8PressCount >= 30 && !hasUnlockedReward) {
           hasUnlockedReward = true;
           showRewardModal();
@@ -872,14 +873,13 @@ function updateParams() {
         hasTriggeredParam13Liquid = true;
         spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.62, "潮吹高潮！大量愛液狂噴...💧💧", "#00e5ff", 2500, "32px");
       }
-      // 🌟【第三階段核心：滿30次解鎖福利裸照】
+      // 第三階段核心：滿30次解鎖福利裸照
       if (param8PressCount >= 30 && !hasUnlockedReward) {
         hasUnlockedReward = true;
         showRewardModal();
       }
     }
 
-    // 只有在未發生腫脹(targetParam14 == 0)時才累計次數
     if (targetParam14 === 0) {
       swipeCounterForSwelling++;
       if (swipeCounterForSwelling >= 15) {
@@ -889,36 +889,42 @@ function updateParams() {
     }
   }
 
-  // 【治療選單與按鈕解鎖動態矩陣】：控制選單顯隱與「擦藥」按鈕狀態
+  // 🌟【精準隔離防守矩陣】：避免高頻率修改 DOM Style 阻礙主執行緒流暢度
   const treatUI = document.getElementById('treatment-ui');
   if (treatUI) {
-    if (targetParam14 >= 0.5) {
-      if (treatUI.style.display === 'none' || treatUI.style.display === '') {
+    const currentTargetDisplay = (targetParam14 >= 0.5) ? 'flex' : 'none';
+    if (currentTargetDisplay !== lastTreatUIDisplay) {
+      if (currentTargetDisplay === 'flex') {
         treatUI.style.display = 'flex';
         treatUI.offsetHeight; 
         treatUI.style.opacity = '1';
         treatUI.style.transform = 'translateX(-50%) scale(1)';
-      }
-
-      const btnMedicine = document.getElementById('btn-treat-medicine');
-      if (btnMedicine) {
-        if (targetParam14 >= 1.0) {
-          btnMedicine.style.background = 'linear-gradient(135deg, #4facfe, #00f2fe)';
-          btnMedicine.style.opacity = '1';
-          btnMedicine.style.cursor = 'pointer';
-        } else {
-          btnMedicine.style.background = '#555555';
-          btnMedicine.style.opacity = '0.5';
-          btnMedicine.style.cursor = 'not-allowed';
-        }
-      }
-    } else {
-      if (treatUI.style.display === 'flex') {
+      } else {
         treatUI.style.opacity = '0';
         treatUI.style.transform = 'translateX(-50%) scale(0.9)';
         setTimeout(() => {
           if (targetParam14 === 0) treatUI.style.display = 'none';
         }, 400); 
+      }
+      lastTreatUIDisplay = currentTargetDisplay;
+    }
+
+    if (targetParam14 >= 0.5) {
+      const btnMedicine = document.getElementById('btn-treat-medicine');
+      if (btnMedicine) {
+        const targetBtnStyle = (targetParam14 >= 1.0) ? "active" : "disabled";
+        if (targetBtnStyle !== lastBtnMedicineStyle) {
+          if (targetBtnStyle === "active") {
+            btnMedicine.style.background = 'linear-gradient(135deg, #4facfe, #00f2fe)';
+            btnMedicine.style.opacity = '1';
+            btnMedicine.style.cursor = 'pointer';
+          } else {
+            btnMedicine.style.background = '#555555';
+            btnMedicine.style.opacity = '0.5';
+            btnMedicine.style.cursor = 'not-allowed';
+          }
+          lastBtnMedicineStyle = targetBtnStyle;
+        }
       }
     }
   }
@@ -941,7 +947,6 @@ function updateParams() {
 
   if (pipContainer) {
     let pipTargetAlpha = isPipActive ? 1.0 : 0.0;
-
     const alphaLerpSpeed = (pipTargetAlpha > currentPipAlpha) ? 0.15 : 0.05;
     currentPipAlpha = lerp(currentPipAlpha, pipTargetAlpha, alphaLerpSpeed); 
     pipContainer.alpha = currentPipAlpha;
@@ -977,7 +982,7 @@ function updateParams() {
     localSwipeCount = 0;
     param8PressCount = 0; 
     hasTriggeredParam13Liquid = false; 
-    hasUnlockedReward = false; // 🌟 穿回內褲時完美重置福利狀態
+    hasUnlockedReward = false; // 穿回內褲時完美重置福利狀態
     isPipActive = false;
     pipManuallyClosed = false;
   }
@@ -1123,7 +1128,7 @@ function setupInteraction() {
     if (e.target && e.target.closest('#zoom-container')) return;
     if (e.target && e.target.closest('#character-tag-ui')) return; 
     if (e.target && e.target.closest('#treatment-ui')) return; 
-    if (e.target && e.target.closest('#reward-modal-ui')) return; // 隔離福利視窗
+    if (e.target && e.target.closest('#reward-modal-ui')) return; 
     handleGlobalDoubleTap(e.clientX, e.clientY);
 
     pointerDownStartTime = Date.now();
@@ -1334,31 +1339,6 @@ async function start() {
     startEyeLookLoop(); 
     app.ticker.add(updateParams);
     
-    await updateLoadingText("準備完成！");
-    resize();
-
-    requestAnimationFrame(() => {
-        resize(); app.render(); 
-        requestAnimationFrame(() => {
-            resize(); setTimeout(hideLoadingUI, 300);
-            setTimeout(() => { resize(); if (app.render) app.render(); }, 100);
-            setTimeout(() => { resize(); if (app.render) app.render(); }, 300);
-        });
-    });
-    
-    window.addEventListener("resize", () => {
-        resize(); createZoomButtons();
-    });
-  } catch (err) { 
-    console.error("啟動失敗:", err); 
-    await updateLoadingText("載入失敗，請重新整理網頁！");
-  }
-}
-
-/**
- * 網頁載入完成後啟動
- */
-window.addEventListener('DOMContentLoaded', start);
     await updateLoadingText("準備完成！");
     resize();
 
