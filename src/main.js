@@ -700,10 +700,10 @@ function createZoomButtons() {
     btnMinus.addEventListener(evt, stopZoom);
   });
 
-  // 加入順序：IG -> 特寫🔍 -> 18+ -> x2 -> ＋ -> －
+  // 加入順序：18+ -> IG -> 特寫🔍 -> x2 -> ＋ -> －
+  container.appendChild(btn18); // 把 18+ 移到最上方
   container.appendChild(btnIg);
   container.appendChild(btnPip); 
-  container.appendChild(btn18); 
   container.appendChild(btnX2);
   container.appendChild(btnPlus);
   container.appendChild(btnMinus);
