@@ -427,14 +427,14 @@ function showBioModal() {
       <div id="btn-close-bio" style="position: absolute; top: 16px; right: 16px; background: rgba(0, 0, 0, 0.75); color: #ffffff; border: 2px solid #ffb3c6; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-family: sans-serif; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s;">✕</div>
       <div style="color: #ffccdd; font-size: 16px; line-height: 1.8; font-family: sans-serif; text-align: left; font-weight: bold; letter-spacing: 1.5px;">
         我是一個超級淫蕩的又沒有羞恥心的暴露色女，<br>
-        明明知道女生的身體只有小穴是絕對不能被別人<br>
-        看到的，我卻還是厚著臉皮做了這款遊戲…<br><br>
-        一想到我沒穿衣服被好多陌生人盡情瀏覽、玩弄<br>
+        明明知道女生的身體只有小穴是絕對不能給別人<br>
+        看的，我卻還是厚著臉皮做了這款遊戲...<br><br>
+        一想到我沒穿衣服的樣子被好多陌生人瀏覽、玩弄<br>
         ，還能隨意把我的騷穴掰開來欣賞、截圖、評論<br>
         ，我就興奮到小穴一直流水，忍不住偷偷自慰高<br>
-        潮了好幾次…<br><br>
-        可是我又好怕被認識的人發現…<br><br>
-        萬一被朋友、同學或是熟人看到我這副淫亂的模<br>
+        潮了好幾次。<br><br>
+        可是又好怕被認識的人發現…<br><br>
+        萬一被朋友、同學或是熟人看到這副淫亂的模<br>
         樣，發現我其實是一個喜歡掰穴給別人看的變態<br>
         暴露婊，應該會直接社死吧...
       </div>
