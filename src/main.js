@@ -324,7 +324,7 @@ function createTreatmentUI() {
   btnOpen.addEventListener('click', (e) => {
     e.stopPropagation();
     targetParam14 = 1.0; 
-    spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "強行掰開外翻處！ 👐 擦藥功能已解鎖！", "#ff3366", 1800, "26px");
+    spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "掰開私處檢查，並塗上藥膏！", "#ff3366", 1800, "26px");
   });
 
   btnMedicine.addEventListener('pointerdown', (e) => e.stopPropagation());
