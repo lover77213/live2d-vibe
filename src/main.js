@@ -44,7 +44,7 @@ let pointerDownStartTime = 0;
 let swipeActionTriggered = false; // 確保單次滑動手勢僅觸發單一階段變更
 let legsWereOpenAtStart = false;  // 記錄每次觸碰開始時大腿的開合狀態，建立手勢隔離防禦網
 let localSwipeCount = 0;          // 紀錄本機掰穴次數，用來自動觸發特寫
-let param8PressCount = 0;         // 🌟 新增：紀錄 Param8 按壓次數，用來控制液體
+let param8PressCount = 0;         // 紀錄 Param8 按壓次數，用來控制液體
 
 // 🔍 特寫功能狀態變數
 let isPipActive = false;              // 特寫目前是否為開啟狀態
@@ -217,6 +217,68 @@ function updateCounterLayout() {
     counterDiv.style.left = '25px';
     counterDiv.style.transform = 'none';
   }
+}
+
+/**
+ * 👑 新增功能：建立可供玩家自訂點擊更改的角色上方名牌 UI
+ */
+function createCharacterTagUI() {
+  if (document.getElementById('character-tag-ui')) return;
+
+  const tagDiv = document.createElement('div');
+  tagDiv.id = 'character-tag-ui';
+  tagDiv.style.cssText = `
+    position: fixed; top: 25px; left: 50%; transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.65); border: 1px solid rgba(255, 179, 198, 0.4);
+    border-radius: 16px; padding: 10px 28px; text-align: center;
+    color: #ffffff; font-family: sans-serif; font-weight: bold;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6); z-index: 9999;
+    user-select: none; pointer-events: auto; cursor: pointer;
+    transition: all 0.25s ease-out;
+  `;
+
+  // 精緻懸停發光效果
+  tagDiv.addEventListener('mouseenter', () => {
+    tagDiv.style.border = '1px solid #ffb3c6';
+    tagDiv.style.boxShadow = '0 4px 20px rgba(255, 179, 198, 0.35)';
+  });
+  tagDiv.addEventListener('mouseleave', () => {
+    tagDiv.style.border = '1px solid rgba(255, 179, 198, 0.4)';
+    tagDiv.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.6)';
+  });
+
+  const nameLayer = document.createElement('div');
+  nameLayer.id = 'char-name-display';
+  nameLayer.style.cssText = `
+    font-size: 20px; color: #ffb3c6; text-shadow: 0 0 8px rgba(255, 179, 198, 0.6);
+    margin-bottom: 2px; font-weight: 900;
+  `;
+  nameLayer.innerText = "精液廁所曾于容"; // 預設文字
+
+  const subLayer = document.createElement('div');
+  subLayer.style.cssText = `
+    font-size: 13px; color: #ffffff; opacity: 0.85; letter-spacing: 3px; font-weight: bold;
+  `;
+  subLayer.innerText = "身材展示";
+
+  tagDiv.appendChild(nameLayer);
+  tagDiv.appendChild(subLayer);
+
+  // 點擊事件：安全阻止冒泡，彈出原生 Prompt 視窗供玩家自由輸入更改名字
+  tagDiv.addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); 
+  });
+  tagDiv.addEventListener('click', (e) => {
+    e.stopPropagation(); 
+    const currentName = nameLayer.innerText;
+    const newName = prompt("📝 請輸入想要更改的自訂角色名稱：", currentName);
+    if (newName !== null && newName.trim() !== "") {
+      nameLayer.innerText = newName.trim();
+      spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.22, "主體稱謂已更新 ✨", "#ffb3c6", 1500, "24px");
+    }
+  });
+
+  document.body.appendChild(tagDiv);
 }
 
 function triggerPageView() {
@@ -540,14 +602,13 @@ function createInvisibleHitbox() {
       legsWereOpenAtStart = (targetParam9 === 1); 
       longPressTriggeredThisHold = false; 
 
-      // 🌟 新增功能：按壓 Param8 累積計數（必須在沒穿內褲狀態下生效）
       if (targetParam10 === 1) {
         param8PressCount++;
         if (param8PressCount >= 10) {
-          targetParam13 = 1; // 滿 10 次流出液體 2 (Param13)
+          targetParam13 = 1; 
         }
         if (param8PressCount >= 20) {
-          targetParam12 = 1; // 滿 20 次流出液體 1 (Param12)
+          targetParam12 = 1; 
         }
       }
 
@@ -694,7 +755,6 @@ function updateParams() {
     }
   }
 
-  // 全網計數器判定（液體已改至下方由 Param8 獨立解鎖）
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
     incrementGlobalCount(); 
@@ -752,17 +812,15 @@ function updateParams() {
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
 
-  // 內褲穿回判定（只要穿回內褲 targetParam10 === 0，液體立刻緩慢回收消失，並將 Param8 計數歸零）
   if (targetParam10 === 0) {
     targetParam12 = 0;
     targetParam13 = 0;
     localSwipeCount = 0;
-    param8PressCount = 0; // 🌟 穿回內褲即時清空按壓紀錄
+    param8PressCount = 0; 
     isPipActive = false;
     pipManuallyClosed = false;
   }
 
-  // 液體 1 與液體 2 動態插值更新 (均以 0.02 速度極致緩慢爬升流出或收回，保證絲滑度)
   currentParam12 = lerp(currentParam12, targetParam12, 0.02);
   core.setParameterValueById("Param12", currentParam12);
 
@@ -881,6 +939,7 @@ function setupInteraction() {
 
   window.addEventListener('pointerdown', (e) => {
     if (e.target && e.target.closest('#zoom-container')) return;
+    if (e.target && e.target.closest('#character-tag-ui')) return; // 隔離名牌點擊，免觸發還原鏈
     handleGlobalDoubleTap(e.clientX, e.clientY);
   });
 
@@ -910,7 +969,7 @@ function setupInteraction() {
       isHoldingForParam8 = false; 
     }
     
-    // 🌟 原汁原味保留：依據您的要求，完美的隔離防禦網判定原封不動回歸
+    // 🌟 原汁原味保留：完美的隔離防禦網判定原封不動回歸
     if (!legsWereOpenAtStart) {
       if (startY > window.innerHeight * 0.42) {
         if (swipeAxis === 'x' && Math.abs(diffX) > 40 && !swipeActionTriggered) {
@@ -1065,6 +1124,7 @@ async function start() {
     createInvisibleHitbox(); 
 
     setupCounter();
+    createCharacterTagUI(); // 在此加載全新自訂角色上方名牌功能
 
     window.model = model;
     app.stage.addChild(model);
