@@ -426,15 +426,15 @@ function showBioModal() {
     <div style="position: relative; width: 85vw; max-width: 500px; padding: 40px 30px; border: 3px solid #ff4d88; border-radius: 24px; box-shadow: 0 0 40px rgba(255, 77, 136, 0.4); background: rgba(0, 0, 0, 0.9);">
       <div id="btn-close-bio" style="position: absolute; top: 16px; right: 16px; background: rgba(0, 0, 0, 0.75); color: #ffffff; border: 2px solid #ffb3c6; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-family: sans-serif; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s;">✕</div>
       <div style="color: #ffccdd; font-size: 16px; line-height: 1.8; font-family: sans-serif; text-align: left; font-weight: bold; letter-spacing: 1.5px;">
-        我是一個超級淫蕩又沒有羞恥心的暴露色女，<br>
-        明明知道女生的身體只有小穴是絕對不能給別人<br>
-        看的，卻還是厚著臉皮做了這款遊戲...<br><br>
-        一想到我沒穿衣服的樣子被好多陌生人瀏覽、玩弄<br>
+        我是一個超級淫蕩的又沒有羞恥心的暴露色女，<br>
+        明明知道女生的身體只有小穴是絕對不能被別人<br>
+        看到的，我卻還是厚著臉皮做了這款遊戲…<br><br>
+        一想到我沒穿衣服被好多陌生人盡情瀏覽、玩弄<br>
         ，還能隨意把我的騷穴掰開來欣賞、截圖、評論<br>
         ，我就興奮到小穴一直流水，忍不住偷偷自慰高<br>
-        潮了好幾次。<br><br>
-        可是又好怕被認識的人發現…<br><br>
-        萬一被朋友、同學或是熟人看到這副淫亂的模<br>
+        潮了好幾次…<br><br>
+        可是我又好怕被認識的人發現…<br><br>
+        萬一被朋友、同學或是熟人看到我這副淫亂的模<br>
         樣，發現我其實是一個喜歡掰穴給別人看的變態<br>
         暴露婊，應該會直接社死吧...
       </div>
@@ -632,7 +632,7 @@ function resize() {
     const btnIg = document.getElementById('btn-ig-link');
     const btnPip = document.getElementById('btn-pip-toggle');
     const btn18 = document.getElementById('btn-reward-gallery');
-    const btnBio = document.getElementById('btn-bio-text'); // 🌟 加入新按鈕的 RWD 設定
+    const btnBio = document.getElementById('btn-bio-text'); 
     const btnX2 = document.getElementById('btn-zoom-x2');
     const btnPlus = document.getElementById('btn-zoom-plus');
     const btnMinus = document.getElementById('btn-zoom-minus');
@@ -713,7 +713,6 @@ function createZoomButtons() {
   btn18.addEventListener('mouseenter', () => btn18.style.transform = 'scale(1.1)');
   btn18.addEventListener('mouseleave', () => btn18.style.transform = 'scale(1)');
 
-  // 🌟 新增獨白按鈕 (💬)
   const btnBio = document.createElement('button');
   btnBio.id = 'btn-bio-text';
   btnBio.innerText = '💬';
@@ -806,10 +805,9 @@ function createZoomButtons() {
     btnMinus.addEventListener(evt, stopZoom);
   });
 
-  // 🌟 將按鈕依序排列
   container.appendChild(btn18); 
-  container.appendChild(btnBio); // 18+ 的下面
-  container.appendChild(btnIg);  // 💬 的下面
+  container.appendChild(btnBio); 
+  container.appendChild(btnIg);  
   container.appendChild(btnPip); 
   container.appendChild(btnX2);
   container.appendChild(btnPlus);
@@ -915,7 +913,18 @@ function createInvisibleHitbox() {
 function setupPiP() {
   const isMobile = window.innerWidth < window.innerHeight;
   const dpr = window.devicePixelRatio || 1;
-  const superRes = isMobile ? Math.max(dpr * 2.5, 3) : Math.max(dpr * 3, 4);
+  
+  // 🌟 修正手機黑畫面問題：加入 GPU 紋理尺寸的 4096 安全極限保護
+  // 先動態偵測當前裝置的最大螢幕維度
+  const maxDimension = Math.max(window.screen?.width || 0, window.screen?.height || 0, window.innerWidth, window.innerHeight);
+  // 計算出：在這個螢幕大小下，解析度倍率最高只能開到多少才不會超過 4096 像素
+  const safeMaxRes = 4096 / (maxDimension || 2000); 
+  
+  // 原本要求的高清倍率
+  let desiredRes = isMobile ? Math.max(dpr * 1.5, 2.5) : Math.max(dpr * 2, 4);
+  
+  // 比較兩者，取安全範圍內的最高畫質
+  const superRes = Math.min(desiredRes, safeMaxRes);
 
   pipRenderTexture = PIXI.RenderTexture.create({
     width: window.innerWidth, height: window.innerHeight, resolution: superRes, scaleMode: PIXI.SCALE_MODES.LINEAR 
@@ -947,7 +956,12 @@ function setupPiP() {
 function updatePiPLayout() {
   if (!pipContainer || !pipRenderTexture || !model) return;
   if (window.innerWidth > 0 && window.innerHeight > 0) {
-    pipRenderTexture.resize(window.innerWidth, window.innerHeight);
+    try {
+      // 🌟 加入 try-catch 防止手機版在螢幕翻轉時報錯
+      pipRenderTexture.resize(window.innerWidth, window.innerHeight);
+    } catch(e) {
+      console.warn("PiP Resize 被 GPU 限制保護攔截:", e);
+    }
   }
   
   const isMobile = window.innerWidth < window.innerHeight;
