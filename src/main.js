@@ -208,7 +208,6 @@ function resize() {
   if (!model || !app) return;
 
   try {
-    // 🌟 核心修復：強制讓 PIXI 視埠同步為當前網頁的最真實寬高，徹底擊碎壓扁 Bug
     if (app.renderer && typeof app.renderer.resize === 'function') {
       app.renderer.resize(window.innerWidth, window.innerHeight);
     }
@@ -231,13 +230,16 @@ function resize() {
     model.x = window.innerWidth / 2;
     model.y = window.innerHeight / 2;
 
+    const btnX2 = document.getElementById('btn-zoom-x2');
     const btnPlus = document.getElementById('btn-zoom-plus');
     const btnMinus = document.getElementById('btn-zoom-minus');
     
-    if (btnPlus && btnMinus) {
+    if (btnPlus && btnMinus && btnX2) {
       const btnSize = isMobile ? '97.5px' : '65px'; 
       const fontSize = isMobile ? '52.5px' : '35px'; 
+      const x2FontSize = isMobile ? '42px' : '28px'; // X2 字體稍微調整更美觀
       
+      btnX2.style.width = btnSize; btnX2.style.height = btnSize; btnX2.style.fontSize = x2FontSize;
       btnPlus.style.width = btnSize; btnPlus.style.height = btnSize; btnPlus.style.fontSize = fontSize;
       btnMinus.style.width = btnSize; btnMinus.style.height = btnSize; btnMinus.style.fontSize = fontSize;
     }
@@ -251,7 +253,7 @@ function resize() {
 }
 
 /**
- * 🎨 建立長按縮放按鈕
+ * 🎨 建立長按縮放與 X2 兩倍放大按鈕
  */
 function createZoomButtons() {
   if (document.getElementById('zoom-container')) return; 
@@ -269,6 +271,20 @@ function createZoomButtons() {
     display: flex; align-items: center; justify-content: center;
     user-select: none; touch-action: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
   `;
+
+  // 🌟 新增：X2 放大兩倍按鈕 (置於最上方)
+  const btnX2 = document.createElement('button');
+  btnX2.id = 'btn-zoom-x2';
+  btnX2.innerText = 'X2';
+  btnX2.style.cssText = btnStyle;
+  btnX2.style.color = '#ffb3c6'; // 給 X2 按鈕一個醒目的特殊粉色調
+  
+  btnX2.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    userScaleOffset = 1.0; // 直接設定 offset 為 1.0 (原基礎 0.5 的 2 倍)
+    resize();
+    if (app.render) app.render();
+  });
 
   const btnPlus = document.createElement('button');
   btnPlus.id = 'btn-zoom-plus';
@@ -292,6 +308,8 @@ function createZoomButtons() {
     btnMinus.addEventListener(evt, stopZoom);
   });
 
+  // 按順序加入：X2 在最上面，接著 ＋，最後 －
+  container.appendChild(btnX2);
   container.appendChild(btnPlus);
   container.appendChild(btnMinus);
   document.body.appendChild(container);
@@ -808,7 +826,7 @@ async function start() {
     // 5. 確保渲染畫面後關閉 Loading
     await updateLoadingText("準備完成！");
     
-    // 🌟 多重校正 pass 1：準備完成當下立馬拉正尺寸
+    // 多重校正 pass 1
     resize();
 
     requestAnimationFrame(() => {
@@ -819,13 +837,13 @@ async function start() {
             // 淡出並移除 Loading 畫面
             setTimeout(hideLoadingUI, 300);
 
-            // 🌟 多重校正 pass 2：在 100 毫秒後，此時手機工具列高度已定型，再次強制拉正，雙重防線！
+            // 多重校正 pass 2
             setTimeout(() => {
               resize();
               if (app.render) app.render();
             }, 100);
 
-            // 🌟 多重校正 pass 3：在 300 毫秒後，針對極少數超慢速慢回彈手機做最後保險校正，徹底絕殺壓扁 Bug！
+            // 多重校正 pass 3
             setTimeout(() => {
               resize();
               if (app.render) app.render();
