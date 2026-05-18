@@ -20,7 +20,7 @@ let targetParam6 = 0, currentParam6 = 0;
 let currentParam8 = 0;             
 let blinkTarget = 1, blinkCurrent = 1;        
 
-// 💖 表情連動與隨機眼神狀態 (已精準對齊 ParamAngleX / ParamAngleY 核心)
+// 💖 表情連動與大振幅隨機眼神狀態 (精準聯動頭部 Angle 與眼珠 EyeBall)
 let targetEyeX = 0, currentEyeX = 0; 
 let targetEyeY = 0, currentEyeY = 0;
 let targetMouthForm = 0, currentMouthForm = 0;
@@ -380,7 +380,6 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
 
   const textEl = document.createElement('div');
   textEl.innerText = text;
-  
   textEl.style.cssText = `
     position: absolute; left: ${x}px; top: ${y}px; color: ${color}; 
     font-size: ${fontSize}; font-weight: bold; font-family: sans-serif;
@@ -424,7 +423,6 @@ function createInvisibleHitbox() {
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
       } else {
-        // 解鎖完畢後再次雙擊，可以重新將大腿合上
         targetParam9 = 0;
         spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
       }
@@ -601,21 +599,29 @@ function updateParams() {
   let p8Target = 0.0;
   if ((isHoldingForParam8 && isParam7Locked) || targetParam5 > 0) {
     if (isHoldingForParam8 && isParam7Locked) p8Target = 3.0; 
-    targetEyeY = -15.0; // 🌟 智慧優化：配合 ParamAngleY 縮放，呈現明顯的害羞低頭向下看！
+    targetEyeX = 0.0;     // 互動時臉部水平維持正對玩家
+    targetEyeY = -24.0;   // 🌟 幅度加大：羞恥感拉滿，更大幅度的羞澀低頭看下面！
     targetMouthForm = -1.0; 
   } else {
-    p8Target = 0.0; targetEyeY = 0.0; targetMouthForm = 0.0;  
+    p8Target = 0.0; targetMouthForm = 0.0;  
   }
 
   currentParam8 = lerp(currentParam8, p8Target, 0.4);
   core.setParameterValueById("Param8", currentParam8);
 
-  // 🌟 修正與深度優化：將控制目標精準變更為標準的 ParamAngleX 與 ParamAngleY
-  currentEyeX = lerp(currentEyeX, targetEyeX, 0.18);
+  // 🌟 核心驅動：頭部轉向 (ParamAngleX/Y) 平滑 Lerp 插值
+  currentEyeX = lerp(currentEyeX, targetEyeX, 0.14); // 略微調緩插值速度，讓轉頭晃動更具物理沉浸感
   core.setParameterValueById("ParamAngleX", currentEyeX); 
 
-  currentEyeY = lerp(currentEyeY, targetEyeY, 0.22);
+  currentEyeY = lerp(currentEyeY, targetEyeY, 0.14);
   core.setParameterValueById("ParamAngleY", currentEyeY); 
+
+  // 🌟 終極連動優化「頭跟著眼睛轉」：眼珠子 (ParamEyeBallX/Y) 以高比例精準協調跟隨
+  // 將 -30~+30 的頭部角度，完美映射對齊至眼珠專用的 -1.0 ~ +1.0 標準物理區間中
+  let coordinatedBallX = Math.max(-1.0, Math.min(1.0, currentEyeX / 20.0));
+  let coordinatedBallY = Math.max(-1.0, Math.min(1.0, currentEyeY / 20.0));
+  core.setParameterValueById("ParamEyeBallX", coordinatedBallX);
+  core.setParameterValueById("ParamEyeBallY", coordinatedBallY);
 
   currentMouthForm = lerp(currentMouthForm, targetMouthForm, 0.3);
   core.setParameterValueById("ParamMouthForm", currentMouthForm);
@@ -659,19 +665,31 @@ function startBlinkLoop() {
 }
 
 /**
- * 🌟 深度優化：配合 ParamAngleX 角度制範圍（-30 ~ +30），自動擴大隨機左顧右盼的寬度至 ±12.0 度！
+ * 🌟 深度優化：配合大角度制轉向，大幅調升隨機左右看與上下看的轉動幅度極限！
+ * 讓眼睛在大範圍轉向的同時，頭部（AngleX/Y）也跟著進行等比大角度運動
  */
 function startEyeLookLoop() {
   const loop = () => {
     setTimeout(() => {
+      // 正在進行長按掰穴或強烈互動時，交由 updateParams 覆寫，跳過隨機飄移
+      if (isOnModel || isHoldingForParam8 || targetParam5 > 0) {
+        loop();
+        return;
+      }
+
       const rand = Math.random();
-      if (rand < 0.4) {
-        targetEyeX = 0; // 40% 機率回正看你
+      if (rand < 0.3) {
+        // 30% 機率回正看著螢幕前的主人
+        targetEyeX = 0;
+        targetEyeY = 0;
       } else {
-        targetEyeX = (Math.random() * 2 - 1) * 12.0; // 60% 機率大範圍左右飄移，產生強烈的仿生看左看右感！
+        // 70% 機率觸發大角度視線飄移！
+        // 水平偏轉極限加大至 ±24.0 度，垂直偏轉加大至 ±10.0 度，極致仿生！
+        targetEyeX = (Math.random() * 2 - 1) * 24.0; 
+        targetEyeY = (Math.random() * 2 - 1) * 10.0; 
       }
       loop();
-    }, 1500 + Math.random() * 2000);
+    }, 1200 + Math.random() * 2300); // 隨機變換頻率維持在 1.2 至 3.5 秒之間
   };
   loop();
 }
@@ -692,7 +710,6 @@ function setupInteraction() {
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
       } else {
-        // 完全解鎖狀態下雙擊，合上大腿
         targetParam9 = 0;
         spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
       }
@@ -725,14 +742,13 @@ function setupInteraction() {
     
     // 🔒 核心關卡：大腿未打開狀態
     if (targetParam9 === 0) {
-      // 必須在臀部區域（螢幕中下半段）向左或向右滑動
       if (startY > window.innerHeight * 0.42) {
         if (swipeAxis === 'x' && Math.abs(diffX) > 40) {
           targetParam9 = 1;
           spawnFloatingText(e.clientX, e.clientY, "把腿掰開了...❤️ (解鎖玩法)", "#ffb3c6", 1800, "28px");
         }
       }
-      return; // 🛑 核心封鎖線：大腿沒開，不執行下面所有十字操作
+      return; 
     }
 
     // 🔓 大腿打開後 (Param9 = 1)，全面解鎖原本的所有互動邏輯
