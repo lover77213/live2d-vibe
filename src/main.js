@@ -10,7 +10,7 @@ let isOnModel = false;
 let swipeAxis = null; 
 
 // 🌟 參數狀態管理
-let targetParam9 = 0, currentParam9 = 0; // 🌟 新增：大腿狀態 (0=關閉, 1=打開)
+let targetParam9 = 0, currentParam9 = 0; // 大腿狀態 (0=關閉, 1=打開)
 let targetClothes = -1, currentClothes = -1;  
 let targetParam7 = -1, currentParam7 = -1;    
 let targetParam5 = -1, currentParam5 = -1;    
@@ -20,7 +20,7 @@ let targetParam6 = 0, currentParam6 = 0;
 let currentParam8 = 0;             
 let blinkTarget = 1, blinkCurrent = 1;        
 
-// 💖 表情連動與隨機眼神狀態
+// 💖 表情連動與隨機眼神狀態 (已精準對齊 ParamAngleX / ParamAngleY 核心)
 let targetEyeX = 0, currentEyeX = 0; 
 let targetEyeY = 0, currentEyeY = 0;
 let targetMouthForm = 0, currentMouthForm = 0;
@@ -184,7 +184,6 @@ function syncWithCloud() {
           .then(res => res.json())
           .then(dailyData => {
             const expiredDailyValue = (dailyData && dailyData.value) ? dailyData.value : 0;
-            
             if (expiredDailyValue > 0) {
               fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?step=${expiredDailyValue}&_=${Date.now()}`);
             }
@@ -295,7 +294,7 @@ function resize() {
 }
 
 /**
- * 🎨 建立可反悔切換的小寫 x2 按鈕
+ * 🎨 建立小寫 x2 兩倍放大按鈕
  */
 function createZoomButtons() {
   if (document.getElementById('zoom-container')) return; 
@@ -303,7 +302,8 @@ function createZoomButtons() {
   const container = document.createElement('div');
   container.id = 'zoom-container';
   container.style.cssText = `
-    position: fixed; bottom: 80px; right: 25px; display: flex; flex-direction: column; gap: 20px; z-index: 6000;
+    position: fixed; bottom: 80px; right: 25px;
+    display: flex; flex-direction: column; gap: 20px; z-index: 6000;
   `;
 
   const btnStyle = `
@@ -368,7 +368,8 @@ function createEffectContainer() {
   const container = document.createElement('div');
   container.id = 'effect-container';
   container.style.cssText = `
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 9999; overflow: hidden;
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    pointer-events: none; z-index: 9999; overflow: hidden;
   `;
   document.body.appendChild(container);
 }
@@ -379,11 +380,14 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
 
   const textEl = document.createElement('div');
   textEl.innerText = text;
+  
   textEl.style.cssText = `
-    position: absolute; left: ${x}px; top: ${y}px; color: ${color}; font-size: ${fontSize};
-    font-weight: bold; font-family: sans-serif; text-shadow: 2px 2px 6px rgba(0,0,0,0.8);
-    transform: translate(-50%, -50%); opacity: 0; white-space: nowrap; 
+    position: absolute; left: ${x}px; top: ${y}px; color: ${color}; 
+    font-size: ${fontSize}; font-weight: bold; font-family: sans-serif;
+    text-shadow: 2px 2px 6px rgba(0,0,0,0.8); transform: translate(-50%, -50%); 
+    opacity: 0; white-space: nowrap; 
   `;
+
   container.appendChild(textEl);
 
   const animation = textEl.animate([
@@ -393,7 +397,7 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
     { transform: 'translate(-50%, -120%)', opacity: 0 }               
   ], { duration: duration, easing: 'ease-out', fill: 'forwards' });
 
-  animation.onfinish = () => textEl.remove();
+  animation.onfinish = () => { textEl.remove(); };
 }
 
 /**
@@ -420,7 +424,7 @@ function createInvisibleHitbox() {
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
       } else {
-        // 🌟 亮點優化：完全解鎖狀態下，再度雙擊可以把大腿重新關閉歸零
+        // 解鎖完畢後再次雙擊，可以重新將大腿合上
         targetParam9 = 0;
         spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
       }
@@ -521,11 +525,10 @@ function updateParams() {
 
   const hitbox = document.getElementById('param8-invisible-hitbox');
   if (hitbox) {
-    // 只有大腿打開後，Param8 物理判定層才會生效
     hitbox.style.display = (isParam7Locked && targetParam9 === 1) ? 'block' : 'none';
   }
 
-  // 1. 全網實時「數字平滑滾動動畫」核心驅動
+  // 全網實時「數字平滑滾動動畫」核心
   if (isCounterInitialized) {
     if (displayedTotalCount < globalTotalCount) {
       let diff = globalTotalCount - displayedTotalCount;
@@ -554,7 +557,7 @@ function updateParams() {
     }
   }
 
-  // 全網計數器觸發判定 (加算到今日與總計)
+  // 全網計數器觸發判定
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
     incrementGlobalCount(); 
@@ -563,7 +566,6 @@ function updateParams() {
   // 🔍 更新局部特寫畫中畫
   if (pipContainer) {
     let pipTargetAlpha = 0.0;
-    // 特寫同樣需要滿足大腿解鎖狀態
     if (isOnModel && targetParam9 === 1 && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1000)) {
       pipTargetAlpha = 1.0;
     } 
@@ -583,7 +585,7 @@ function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
-  // 🌟 2. 注入大腿狀態參數 (Param9) 的動態平滑插值
+  // 大腿解鎖動態插值
   currentParam9 = lerp(currentParam9, targetParam9, 0.15);
   core.setParameterValueById("Param9", currentParam9);
 
@@ -599,7 +601,8 @@ function updateParams() {
   let p8Target = 0.0;
   if ((isHoldingForParam8 && isParam7Locked) || targetParam5 > 0) {
     if (isHoldingForParam8 && isParam7Locked) p8Target = 3.0; 
-    targetEyeY = -1.0; targetMouthForm = -1.0; 
+    targetEyeY = -15.0; // 🌟 智慧優化：配合 ParamAngleY 縮放，呈現明顯的害羞低頭向下看！
+    targetMouthForm = -1.0; 
   } else {
     p8Target = 0.0; targetEyeY = 0.0; targetMouthForm = 0.0;  
   }
@@ -607,11 +610,12 @@ function updateParams() {
   currentParam8 = lerp(currentParam8, p8Target, 0.4);
   core.setParameterValueById("Param8", currentParam8);
 
-  currentEyeX = lerp(currentEyeX, targetEyeX, 0.22);
-  core.setParameterValueById("ParamEyeBallX", currentEyeX);
+  // 🌟 修正與深度優化：將控制目標精準變更為標準的 ParamAngleX 與 ParamAngleY
+  currentEyeX = lerp(currentEyeX, targetEyeX, 0.18);
+  core.setParameterValueById("ParamAngleX", currentEyeX); 
 
-  currentEyeY = lerp(currentEyeY, targetEyeY, 0.3);
-  core.setParameterValueById("ParamEyeBallY", currentEyeY);
+  currentEyeY = lerp(currentEyeY, targetEyeY, 0.22);
+  core.setParameterValueById("ParamAngleY", currentEyeY); 
 
   currentMouthForm = lerp(currentMouthForm, targetMouthForm, 0.3);
   core.setParameterValueById("ParamMouthForm", currentMouthForm);
@@ -654,14 +658,20 @@ function startBlinkLoop() {
   loop();
 }
 
+/**
+ * 🌟 深度優化：配合 ParamAngleX 角度制範圍（-30 ~ +30），自動擴大隨機左顧右盼的寬度至 ±12.0 度！
+ */
 function startEyeLookLoop() {
   const loop = () => {
     setTimeout(() => {
       const rand = Math.random();
-      if (rand < 0.4) targetEyeX = 0;
-      else targetEyeX = (Math.random() * 2 - 1) * 0.58; 
+      if (rand < 0.4) {
+        targetEyeX = 0; // 40% 機率回正看你
+      } else {
+        targetEyeX = (Math.random() * 2 - 1) * 12.0; // 60% 機率大範圍左右飄移，產生強烈的仿生看左看右感！
+      }
       loop();
-    }, 1200 + Math.random() * 2300);
+    }, 1500 + Math.random() * 2000);
   };
   loop();
 }
@@ -682,7 +692,7 @@ function setupInteraction() {
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
       } else {
-        // 沒有鎖定時雙擊，合上大腿
+        // 完全解鎖狀態下雙擊，合上大腿
         targetParam9 = 0;
         spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
       }
@@ -713,20 +723,19 @@ function setupInteraction() {
       isHoldingForParam8 = false; 
     }
     
-    // 🌟 核心關卡：大腿未打開狀態 (targetParam9 === 0)
+    // 🔒 核心關卡：大腿未打開狀態
     if (targetParam9 === 0) {
-      // 門檻判定：必須在臀部區域（螢幕中下半段，以點擊起點 startY 為準）
+      // 必須在臀部區域（螢幕中下半段）向左或向右滑動
       if (startY > window.innerHeight * 0.42) {
-        // 向左或向右滑動大於 40 像素，解鎖大腿開腿動作！
         if (swipeAxis === 'x' && Math.abs(diffX) > 40) {
           targetParam9 = 1;
           spawnFloatingText(e.clientX, e.clientY, "把腿掰開了...❤️ (解鎖玩法)", "#ffb3c6", 1800, "28px");
         }
       }
-      return; // 🛑 核心封鎖線：只要大腿還沒開，完全跳出，不執行下面的十字與掰穴操作
+      return; // 🛑 核心封鎖線：大腿沒開，不執行下面所有十字操作
     }
 
-    // 🔓 大腿打開後 (Param9 = 1)，全面解鎖下方原本的所有互動邏輯
+    // 🔓 大腿打開後 (Param9 = 1)，全面解鎖原本的所有互動邏輯
     if (swipeAxis === 'x') {
       if (targetClothes === -1 && !isParam2Locked) { 
         if (diffX > 0) {
@@ -764,7 +773,6 @@ function setupInteraction() {
     swipeAxis = null;
     isHoldingForParam8 = false;
 
-    // 只有在大腿打開的狀態下，鬆開手才會去記錄這些高級參數的鎖定狀態
     if (targetParam9 === 1) {
       if (targetClothes === 1 && !isParam2Locked) { isParam2Locked = true; lockHistory.push('Param2'); }
       if (targetParam7 === 2.8 && !isParam7Locked) { isParam7Locked = true; lockHistory.push('Param7'); }
