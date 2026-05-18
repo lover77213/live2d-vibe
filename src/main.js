@@ -45,7 +45,7 @@ let pointerDownStartTime = 0;
 let swipeActionTriggered = false; // 確保單次滑動手勢僅觸發單一階段變更
 let legsWereOpenAtStart = false;  // 記錄每次觸碰開始時大腿的開合狀態，建立手勢隔離防禦網
 let localSwipeCount = 0;          // 紀錄本機掰穴次數
-let param8PressCount = 0;         // 紀錄 Param8 按壓次數，用來控制液體流出
+let param8PressCount = 0;         // 紀錄連續互動次數，用來控制液體流出
 let swipeCounterForSwelling = 0;  // 🌟 核心計數：計算掰穴次數，滿 15 次觸發外翻腫脹
 
 // 🔍 特寫功能狀態變數
@@ -308,11 +308,10 @@ function createTreatmentUI() {
   const btnOpen = document.getElementById('btn-treat-open');
   const btnMedicine = document.getElementById('btn-treat-medicine');
 
-  // 防止事件下發冒泡阻斷與模型的基礎滑動
   btnOpen.addEventListener('pointerdown', (e) => e.stopPropagation());
   btnOpen.addEventListener('click', (e) => {
     e.stopPropagation();
-    targetParam14 = 1.0; // 拉滿至 1.0 極致扭曲，此時會觸發擦藥解鎖
+    targetParam14 = 1.0; // 拉滿至 1.0 極致扭曲，觸發擦藥解鎖
     spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "強行掰開外翻處！ 👐 擦藥功能已解鎖！", "#ff3366", 1800, "26px");
   });
 
@@ -320,7 +319,7 @@ function createTreatmentUI() {
   btnMedicine.addEventListener('click', (e) => {
     e.stopPropagation();
     
-    // 🌟【微調核心防禦網】：如果還沒按下掰開（targetParam14 仍小於 1.0），直接封鎖擦藥操作並提示
+    // 🌟 核心防禦網：如果還沒按下掰開（targetParam14 仍小於 1.0），直接封鎖擦藥操作並提示
     if (targetParam14 < 1.0) {
       spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "⚠️ 腫脹太嚴重了！必須先按下「掰開」才能擦藥！", "#ffcc00", 1800, "24px");
       return;
@@ -653,10 +652,12 @@ function createInvisibleHitbox() {
       legsWereOpenAtStart = (targetParam9 === 1); 
       longPressTriggeredThisHold = false; 
 
+      // 🌟 點按隱形判定區時累積高潮液體計數
       if (targetParam10 === 1) {
         param8PressCount++;
-        if (param8PressCount >= 10) {
+        if (param8PressCount >= 10 && targetParam12 === 0) {
           targetParam12 = 1; 
+          spawnFloatingText(e.clientX, e.clientY - 30, "受不了刺激流出液體了...💧", "#00f2fe", 2000, "28px");
         }
       }
 
@@ -803,11 +804,20 @@ function updateParams() {
     }
   }
 
-  // 🌟【掰穴判定區塊】：每 15 次外翻腫脹邏輯
+  // 🌟【主要互動掰穴判定區塊】：同時修正液體觸發與腫脹外翻
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
     incrementGlobalCount(); 
     localSwipeCount++;
+
+    // 🌟【修復核心】：讓液體功能能 100% 在正常掰穴滑動時完美觸發
+    if (targetParam10 === 1) {
+      param8PressCount++;
+      if (param8PressCount >= 10 && targetParam12 === 0) {
+        targetParam12 = 1; // 絲滑開啟液體流出 (Param12)
+        spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.58, "愛液溢出來了...💧", "#00f2fe", 2000, "28px");
+      }
+    }
 
     // 只有在未發生腫脹(targetParam14 == 0)時才累計次數
     if (targetParam14 === 0) {
@@ -902,6 +912,7 @@ function updateParams() {
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
 
+  // 內褲穿上時重置所有計數器
   if (targetParam10 === 0) {
     targetParam12 = 0;
     localSwipeCount = 0;
