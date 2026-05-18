@@ -76,10 +76,7 @@ let globalViewsDaily = 0;
 let hasCountedThisSwipe = false; 
 const COUNTER_NAMESPACE = 'waifu_live2d_project_2026'; 
 const KEY_TOTAL = 'interactive_clicks'; 
-const KEY_DAILY = 'interactive_clicks_daily'; 
 const KEY_VIEWS_TOTAL = 'site_views_total';
-const KEY_VIEWS_DAILY = 'site_views_daily';
-const KEY_LAST_DATE = 'interactive_last_date'; 
 const ABACUS_URL = 'https://abacus.jasoncameron.dev';
 
 // 📈 實時滾動數字特效狀態變數
@@ -163,6 +160,7 @@ function hideLoadingUI() {
   }
 }
 
+// 獲取台灣時間日期字串 (YYYY-MM-DD)，作為精準的換日切割依據
 function getTaiwanDateString() {
   const d = new Date();
   const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
@@ -172,6 +170,8 @@ function getTaiwanDateString() {
   const dd = String(twTime.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 }
+
+let lastSyncedDate = getTaiwanDateString(); // 追蹤目前系統日期，用於午夜自動歸零
 
 // 🛡️ 終極快取破壞者：確保每一筆請求絕對是全新的
 function buildNoCacheUrl(base) {
@@ -372,7 +372,7 @@ function showRewardModal() {
       <img src="public/model/reward.jpg" alt="終極福利解鎖" style="max-width: 100%; max-height: 75vh; object-fit: contain; display: block;">
       <div id="btn-close-reward" style="position: absolute; top: 16px; right: 16px; background: rgba(0, 0, 0, 0.75); color: #ffffff; border: 2px solid #ffb3c6; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-family: sans-serif; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s;">✕</div>
     </div>
-    <div style="color: #ffb3c6; font-size: 24px; font-weight: 900; margin-top: 25px; text-shadow: 0 0 12px rgba(255, 179, 198, 0.85); font-family: sans-serif; letter-spacing: 2px; text-align: center; padding: 0 20px; line-height: 1.4;">🎉 經液廁所極度高潮！大滿足福利照片解鎖 🎉</div>
+    <div style="color: #ffb3c6; font-size: 24px; font-weight: 900; margin-top: 25px; text-shadow: 0 0 12px rgba(255, 179, 198, 0.85); font-family: sans-serif; letter-spacing: 2px; text-align: center; padding: 0 20px; line-height: 1.4;">🎉 被掰穴到高潮了！大滿足福利照片解鎖。 🎉</div>
   `;
   document.body.appendChild(modal);
 
@@ -394,54 +394,38 @@ function showRewardModal() {
 }
 
 function triggerPageView() {
-  const currentDate = getTaiwanDateString();
+  const dailyViewsKey = `site_views_${getTaiwanDateString()}`; // 動態寫入每日 Key
   fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}`), { cache: 'no-store' }).catch(() => {});
-  fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}`), { cache: 'no-store' }).catch(() => {});
-  fetch(buildNoCacheUrl(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}`), { cache: 'no-store' }).catch(() => {});
+  fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${dailyViewsKey}`), { cache: 'no-store' }).catch(() => {});
 }
 
 function syncWithCloud() {
-  const currentDate = getTaiwanDateString();
+  // 🌟 使用當天日期作為獨立 Key，徹底解決換日同步卡死的問題
+  const dailyClicksKey = `interactive_clicks_${getTaiwanDateString()}`;
+  const dailyViewsKey = `site_views_${getTaiwanDateString()}`;
 
-  safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}`)
-    .then(dateData => {
-      const serverSavedDate = dateData && dateData.value ? String(dateData.text || dateData.value) : currentDate;
+  Promise.all([
+    safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_TOTAL}`),
+    safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${dailyClicksKey}`),
+    safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}`),
+    safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${dailyViewsKey}`)
+  ]).then(([totalData, dailyData, totalViews, dailyViews]) => {
+    const tVal = totalData && typeof totalData.value === 'number' ? totalData.value : globalTotalCount;
+    const dVal = dailyData && typeof dailyData.value === 'number' ? dailyData.value : 0; // 若為新日期會自動回傳空/0
+    const tvVal = totalViews && typeof totalViews.value === 'number' ? totalViews.value : globalViewsTotal;
+    const dvVal = dailyViews && typeof dailyViews.value === 'number' ? dailyViews.value : 0;
 
-      if (serverSavedDate !== currentDate) {
-        Promise.all([
-          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}`),
-          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}`)
-        ]).then(([dailyData, dailyViewsData]) => {
-            const expiredDailyValue = (dailyData && dailyData.value) ? dailyData.value : 0;
-            const expiredDailyViews = (dailyViewsData && dailyViewsData.value) ? dailyViewsData.value : 0;
-            
-            if (expiredDailyValue > 0) fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?step=${expiredDailyValue}`), { cache: 'no-store' }).catch(() => {});
-            if (expiredDailyViews > 0) fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}?step=${expiredDailyViews}`), { cache: 'no-store' }).catch(() => {});
-            
-            fetch(buildNoCacheUrl(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_DAILY}?value=0`), { cache: 'no-store' }).catch(() => {});
-            fetch(buildNoCacheUrl(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?value=0`), { cache: 'no-store' }).catch(() => {});
-            fetch(buildNoCacheUrl(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}`), { cache: 'no-store' }).catch(() => {});
-            
-            globalDailyCount = 0;
-            globalViewsDaily = 0;
-            updateCounterUI(globalTotalCount + expiredDailyValue, 0, globalViewsTotal + expiredDailyViews, 0);
-          }).catch(() => {});
-      } else {
-        Promise.all([
-          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_TOTAL}`),
-          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}`),
-          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}`),
-          safeFetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}`)
-        ]).then(([totalData, dailyData, totalViews, dailyViews]) => {
-          const tVal = totalData && typeof totalData.value === 'number' ? totalData.value : globalTotalCount;
-          const dVal = dailyData && typeof dailyData.value === 'number' ? dailyData.value : globalDailyCount;
-          const tvVal = totalViews && typeof totalViews.value === 'number' ? totalViews.value : globalViewsTotal;
-          const dvVal = dailyViews && typeof dailyViews.value === 'number' ? dailyViews.value : globalViewsDaily;
-          updateCounterUI(tVal, dVal, tvVal, dvVal);
-        }).catch(() => {});
-      }
-    })
-    .catch(() => {});
+    // 只要雲端數字比較大，強制更新到網頁上 (解決多裝置不同步)
+    let needsUpdate = false;
+    if (tVal > globalTotalCount) { globalTotalCount = tVal; needsUpdate = true; }
+    if (dVal > globalDailyCount) { globalDailyCount = dVal; needsUpdate = true; }
+    if (tvVal > globalViewsTotal) { globalViewsTotal = tvVal; needsUpdate = true; }
+    if (dvVal > globalViewsDaily) { globalViewsDaily = dvVal; needsUpdate = true; }
+
+    if (needsUpdate) {
+      updateCounterUI(globalTotalCount, globalDailyCount, globalViewsTotal, globalViewsDaily);
+    }
+  }).catch(() => {});
 }
 
 function handleGlobalDoubleTap(clientX, clientY) {
@@ -487,11 +471,10 @@ function incrementGlobalCount() {
   globalDailyCount++;
   updateCounterUI(globalTotalCount, globalDailyCount, globalViewsTotal, globalViewsDaily);
   
-  const currentDate = getTaiwanDateString();
+  const dailyClicksKey = `interactive_clicks_${getTaiwanDateString()}`; // 動態寫入每日 Key
 
   fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}`), { cache: 'no-store' }).catch(() => {});
-  fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_DAILY}`), { cache: 'no-store' }).catch(() => {});
-  fetch(buildNoCacheUrl(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}`), { cache: 'no-store' }).catch(() => {});
+  fetch(buildNoCacheUrl(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${dailyClicksKey}`), { cache: 'no-store' }).catch(() => {});
 }
 
 function updateCounterUI(serverTotal, serverDaily, serverViewsTotal, serverViewsDaily) {
@@ -638,7 +621,7 @@ function createZoomButtons() {
     }
   });
   btnPip.addEventListener('mouseenter', () => btnPip.style.transform = 'scale(1.1)');
-  btnPip.addEventListener('mouseleave', () => btnPip.style.transform = 'scale(1)');
+  btnPip.addEventListener('mouseleave', () => btnPip.style.transform = 'scale(1.1)');
 
   // 🌟 永久福利庫按鈕
   const btn18 = document.createElement('button');
@@ -867,6 +850,17 @@ function updatePiPLayout() {
 }
 
 function updateParams() {
+  // 🌟 午夜自動歸零偵測：如果使用者掛機跨越 24:00，畫面也會馬上同步歸零，並紀錄新的一天
+  const currentDate = getTaiwanDateString();
+  if (currentDate !== lastSyncedDate) {
+    globalDailyCount = 0;
+    displayedDailyCount = 0;
+    globalViewsDaily = 0;
+    displayedViewsDaily = 0;
+    lastSyncedDate = currentDate;
+    triggerPageView(); // 觸發新一天的一次造訪
+  }
+
   if (zoomDirection !== 0) {
     userScaleOffset += zoomDirection * 0.015;
     userScaleOffset = Math.max(0.1, Math.min(userScaleOffset, 5.0));
@@ -943,7 +937,8 @@ function updateParams() {
       swipeCounterForSwelling++;
       if (swipeCounterForSwelling >= 15) {
         targetParam14 = 0.5; 
-        spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.5, "小穴被你掰到外翻腫起來了", "#ff3366", 2500, "32px");
+        // 🌟 已加上驚嘆號並修改為 5000 毫秒 (5秒)
+        spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.5, "小穴被你掰到外翻腫起來了！", "#ff3366", 5000, "32px");
       }
     }
 
