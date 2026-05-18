@@ -2,6 +2,12 @@
  * 🚀 PIXI 應用程式初始化與 Live2D 互動核心 (終極優化版)
  */
 
+// 🛡️ 解決 favicon.ico 404 報錯問題 (動態注入空白圖標)
+const faviconLink = document.createElement('link');
+faviconLink.rel = 'icon';
+faviconLink.href = 'data:,';
+document.head.appendChild(faviconLink);
+
 let app; 
 let model;
 let startX = 0; 
@@ -200,7 +206,6 @@ function setupCounter() {
     </div>
   `;
 
-  // 🛡️ 防禦優化：立即在本機啟用計數器結構，不等待雲端回應，避免畫面卡死
   displayedTotalCount = 0;
   displayedDailyCount = 0;
   displayedViewsTotal = 0;
@@ -213,9 +218,6 @@ function setupCounter() {
   setInterval(syncWithCloud, 4000);
 }
 
-/**
- * 🖥️ 智慧排版管理：網頁電腦版移至左上角，手機直式畫面保持在下方
- */
 function updateCounterLayout() {
   const counterDiv = document.getElementById('global-counter-ui');
   if (!counterDiv) return;
@@ -234,9 +236,6 @@ function updateCounterLayout() {
   }
 }
 
-/**
- * 👑 建立可供玩家自訂點擊更改的角色上方名牌 UI
- */
 function createCharacterTagUI() {
   if (document.getElementById('character-tag-ui')) return;
 
@@ -292,9 +291,6 @@ function createCharacterTagUI() {
   document.body.appendChild(tagDiv);
 }
 
-/**
- * 🏥 建立治療按鈕選單 UI (磨砂玻璃發光面板 - 已優化下移至 bottom: 180px)
- */
 function createTreatmentUI() {
   if (document.getElementById('treatment-ui')) return;
 
@@ -344,7 +340,7 @@ function createTreatmentUI() {
 }
 
 /**
- * 🌟 動態全螢幕福利解鎖彈窗 UI 系統 (極致調教優化版)
+ * 🌟 動態全螢幕福利解鎖彈窗 UI 系統
  */
 function showRewardModal() {
   if (document.getElementById('reward-modal-ui')) return;
@@ -359,6 +355,11 @@ function showRewardModal() {
     transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1); user-select: none;
   `;
 
+  // 🛡️ 阻擋事件穿透，避免玩家在看圖時不小心摸到後面的模型
+  modal.addEventListener('pointerdown', e => e.stopPropagation());
+  modal.addEventListener('pointermove', e => e.stopPropagation());
+  modal.addEventListener('pointerup', e => e.stopPropagation());
+
   modal.innerHTML = `
     <div style="position: relative; max-width: 90vw; max-height: 75vh; border: 3px solid #ff4d88; border-radius: 24px; overflow: hidden; box-shadow: 0 0 40px rgba(255, 77, 136, 0.7); background: #000000; display: flex; justify-content: center; align-items: center;">
       <img src="public/model/reward.jpg" alt="終極福利解鎖" style="max-width: 100%; max-height: 75vh; object-fit: contain; display: block;">
@@ -368,7 +369,7 @@ function showRewardModal() {
   `;
   document.body.appendChild(modal);
 
-  modal.offsetHeight; // 觸發重繪機制以執行過渡動畫
+  modal.offsetHeight; // 觸發重繪
   modal.style.opacity = '1';
 
   const closeBtn = document.getElementById('btn-close-reward');
@@ -382,9 +383,6 @@ function showRewardModal() {
   });
 }
 
-/**
- * 🛡️ 異常防護網：異步安全獲取雲端回應，避免 CORS 崩潰波及主執行緒
- */
 function safeFetch(url) {
   return fetch(url)
     .then(res => res.ok ? res.json() : null)
@@ -415,12 +413,8 @@ function syncWithCloud() {
             const expiredDailyValue = (dailyData && dailyData.value) ? dailyData.value : 0;
             const expiredDailyViews = (dailyViewsData && dailyViewsData.value) ? dailyViewsData.value : 0;
             
-            if (expiredDailyValue > 0) {
-              fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?step=${expiredDailyValue}&_=${Date.now()}`).catch(() => {});
-            }
-            if (expiredDailyViews > 0) {
-              fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}?step=${expiredDailyViews}&_=${Date.now()}`).catch(() => {});
-            }
+            if (expiredDailyValue > 0) fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?step=${expiredDailyValue}&_=${Date.now()}`).catch(() => {});
+            if (expiredDailyViews > 0) fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_VIEWS_TOTAL}?step=${expiredDailyViews}&_=${Date.now()}`).catch(() => {});
             
             fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_DAILY}?value=0&_=${Date.now()}`).catch(() => {});
             fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_VIEWS_DAILY}?value=0&_=${Date.now()}`).catch(() => {});
@@ -448,9 +442,6 @@ function syncWithCloud() {
     .catch(() => {});
 }
 
-/**
- * 🌟 全域核心功能：階梯式雙擊還原鏈 (已整合至 Window 實現全螢幕無死角判定)
- */
 function handleGlobalDoubleTap(clientX, clientY) {
   const currentTime = Date.now();
   if (currentTime - lastTapTime < 300) {
@@ -518,9 +509,6 @@ function updateCounterUI(serverTotal, serverDaily, serverViewsTotal, serverViews
   }
 }
 
-/**
- * 📏 自動縮放與畫質維持
- */
 function resize() {
   if (!model || !app) return;
 
@@ -547,6 +535,7 @@ function resize() {
     model.x = window.innerWidth / 2;
     model.y = window.innerHeight / 2;
 
+    const btn18 = document.getElementById('btn-reward-gallery');
     const btnX2 = document.getElementById('btn-zoom-x2');
     const btnPlus = document.getElementById('btn-zoom-plus');
     const btnMinus = document.getElementById('btn-zoom-minus');
@@ -555,7 +544,11 @@ function resize() {
       const btnSize = isMobile ? '97.5px' : '65px'; 
       const fontSize = isMobile ? '52.5px' : '35px'; 
       const x2FontSize = isMobile ? '42px' : '28px';
+      const btn18FontSize = isMobile ? '35px' : '24px';
       
+      if (btn18) {
+        btn18.style.width = btnSize; btn18.style.height = btnSize; btn18.style.fontSize = btn18FontSize;
+      }
       btnX2.style.width = btnSize; btnX2.style.height = btnSize; btnX2.style.fontSize = x2FontSize;
       btnPlus.style.width = btnSize; btnPlus.style.height = btnSize; btnPlus.style.fontSize = fontSize;
       btnMinus.style.width = btnSize; btnMinus.style.height = btnSize; btnMinus.style.fontSize = fontSize;
@@ -571,7 +564,7 @@ function resize() {
 }
 
 /**
- * 🎨 建立小寫 x2 兩倍放大按鈕
+ * 🎨 建立側邊按鈕 (加入 18+ 福利收藏庫按鈕)
  */
 function createZoomButtons() {
   if (document.getElementById('zoom-container')) return; 
@@ -588,7 +581,25 @@ function createZoomButtons() {
     background: rgba(0, 0, 0, 0.7); color: white; font-weight: bold; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     user-select: none; touch-action: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    transition: transform 0.1s, box-shadow 0.2s;
   `;
+
+  // 🌟 隱藏的 18+ 永久福利庫按鈕
+  const btn18 = document.createElement('button');
+  btn18.id = 'btn-reward-gallery';
+  btn18.innerText = '18+';
+  btn18.style.cssText = btnStyle;
+  btn18.style.background = 'linear-gradient(135deg, #ff0055, #ff4d88)';
+  btn18.style.color = '#ffffff';
+  btn18.style.border = '2px solid #ffccdd';
+  btn18.style.boxShadow = '0 0 15px rgba(255, 77, 136, 0.8)';
+  btn18.style.display = 'none'; // 預設隱藏
+  btn18.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    showRewardModal();
+  });
+  btn18.addEventListener('mouseenter', () => btn18.style.transform = 'scale(1.1)');
+  btn18.addEventListener('mouseleave', () => btn18.style.transform = 'scale(1)');
 
   const btnX2 = document.createElement('button');
   btnX2.id = 'btn-zoom-x2';
@@ -631,15 +642,13 @@ function createZoomButtons() {
     btnMinus.addEventListener(evt, stopZoom);
   });
 
+  container.appendChild(btn18); // 放置於最上方
   container.appendChild(btnX2);
   container.appendChild(btnPlus);
   container.appendChild(btnMinus);
   document.body.appendChild(container);
 }
 
-/**
- * 💖 建立漂浮文字特效容器
- */
 function createEffectContainer() {
   if (document.getElementById('effect-container')) return;
   const container = document.createElement('div');
@@ -676,9 +685,6 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
   animation.onfinish = () => { textEl.remove(); };
 }
 
-/**
- * 🎯 建立 Param8 專用的隱形物理判定圖層
- */
 function createInvisibleHitbox() {
   if (document.getElementById('param8-invisible-hitbox')) return;
   
@@ -713,6 +719,8 @@ function createInvisibleHitbox() {
         if (param8PressCount >= 30 && !hasUnlockedReward) {
           hasUnlockedReward = true;
           showRewardModal();
+          const btn18 = document.getElementById('btn-reward-gallery');
+          if (btn18) btn18.style.display = 'flex'; // 永久顯示按鈕
         }
       }
 
@@ -723,9 +731,6 @@ function createInvisibleHitbox() {
   document.body.appendChild(hitbox);
 }
 
-/**
- * 🔍 建立 200% 局部特寫畫中畫 (PiP)
- */
 function setupPiP() {
   const isMobile = window.innerWidth < window.innerHeight;
   const dpr = window.devicePixelRatio || 1;
@@ -792,9 +797,6 @@ function updatePiPLayout() {
   pipSprite.y = size / 2 - focusY * finalZoomLevel;
 }
 
-/**
- * ⚙️ 更新所有 Live2D 參數與 UI 數字滾動動畫
- */
 function updateParams() {
   if (zoomDirection !== 0) {
     userScaleOffset += zoomDirection * 0.015;
@@ -859,27 +861,27 @@ function updateParams() {
     }
   }
 
-  // 🌟【主要互動解耦隔離區塊】：優先安全執行本地互動邏輯，最後再非同步報告雲端
+  // 🌟【主要互動解耦隔離區塊】
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
     localSwipeCount++;
 
     if (targetParam10 === 1) {
       param8PressCount++;
-      // 第一階段液體 (10次)
       if (param8PressCount >= 10 && targetParam12 === 0) {
         targetParam12 = 1; 
         spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.58, "愛液溢出來了...💧", "#00f2fe", 2000, "28px");
       }
-      // 第二階段特級液體爆發 (25次)
       if (param8PressCount >= 25 && !hasTriggeredParam13Liquid) {
         hasTriggeredParam13Liquid = true;
         spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.62, "潮吹高潮！大量愛液狂噴...💧💧", "#00e5ff", 2500, "32px");
       }
-      // 第三階段核心：滿30次解鎖福利裸照
+      // 第三階段核心：解鎖福利相片並開啟按鈕
       if (param8PressCount >= 30 && !hasUnlockedReward) {
         hasUnlockedReward = true;
         showRewardModal();
+        const btn18 = document.getElementById('btn-reward-gallery');
+        if (btn18) btn18.style.display = 'flex'; // 永久顯示按鈕
       }
     }
 
@@ -891,7 +893,6 @@ function updateParams() {
       }
     }
 
-    // 🛡️ 雲端數據報告安全隔離，其報錯不會中斷本機遊戲互動
     try {
       incrementGlobalCount(); 
     } catch (netErr) {
@@ -899,7 +900,6 @@ function updateParams() {
     }
   }
 
-  // 🌟【精準隔離防守矩陣】：避免高頻率修改 DOM Style 阻礙主執行緒流暢度
   const treatUI = document.getElementById('treatment-ui');
   if (treatUI) {
     const currentTargetDisplay = (targetParam14 >= 0.5) ? 'flex' : 'none';
@@ -939,7 +939,6 @@ function updateParams() {
     }
   }
 
-  // 全螢幕長按滿 1.5 秒 (1500ms) 切換特寫狀態
   if (pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1500)) {
     if (!longPressTriggeredThisHold) {
       longPressTriggeredThisHold = true;
@@ -986,13 +985,13 @@ function updateParams() {
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
 
-  // 內褲穿上時重置所有計數器、液體與福利照片解鎖狀態
+  // 🌟 內褲穿上時：保留福利圖按鈕，僅重置計數與液體
   if (targetParam10 === 0) {
     targetParam12 = 0;
     localSwipeCount = 0;
     param8PressCount = 0; 
     hasTriggeredParam13Liquid = false; 
-    hasUnlockedReward = false; // 穿回內褲時完美重置福利狀態
+    // 移除 hasUnlockedReward = false; 讓玩家不用重複解鎖福利圖！
     isPipActive = false;
     pipManuallyClosed = false;
   }
@@ -1000,7 +999,6 @@ function updateParams() {
   currentParam12 = lerp(currentParam12, targetParam12, 0.02);
   core.setParameterValueById("Param12", currentParam12);
 
-  // 【Param13 動態融合遮罩公式與第25次噴水液體劫持】
   let finalParam13Target = 0;
   if (param8PressCount >= 25) {
     finalParam13Target = 1.0;
@@ -1103,11 +1101,271 @@ function startBlinkLoop() {
   loop();
 }
 
-/**
- * 🌟 縱向的視線搖擺極刻意歸零
- */
 function startEyeLookLoop() {
   const loop = () => {
+    setTimeout(() => {
+      if (isOnModel || isHoldingForParam8 || targetParam5 > 0) {
+        loop();
+        return;
+      }
+
+      const rand = Math.random();
+      if (rand < 0.3) {
+        targetEyeX = 0;
+        targetEyeY = 0; 
+      } else {
+        targetEyeX = (Math.random() * 2 - 1) * 24.0; 
+        targetEyeY = 0; 
+      }
+      loop();
+    }, 1200 + Math.random() * 2300);
+  };
+  loop();
+}
+
+function setupInteraction() {
+  app.view.style.touchAction = "none";
+
+  window.addEventListener('pointerdown', (e) => {
+    if (e.target && e.target.closest('#zoom-container')) return;
+    if (e.target && e.target.closest('#character-tag-ui')) return; 
+    if (e.target && e.target.closest('#treatment-ui')) return; 
+    if (e.target && e.target.closest('#reward-modal-ui')) return; 
+    handleGlobalDoubleTap(e.clientX, e.clientY);
+
+    pointerDownStartTime = Date.now();
+    longPressTriggeredThisHold = false;
+    startX = e.clientX;
+    startY = e.clientY;
+  });
+
+  model.interactive = true; 
+  model.buttonMode = true; 
+
+  model.on('pointerdown', (e) => {
+    isOnModel = true;
+    pointerDownStartTime = Date.now(); 
+    startX = e.data.originalEvent.clientX || e.data.global.x; 
+    startY = e.data.originalEvent.clientY || e.data.global.y; 
+    swipeAxis = null; 
+    swipeActionTriggered = false; 
+    legsWereOpenAtStart = (targetParam9 === 1); 
+    longPressTriggeredThisHold = false; 
+  });
+  
+  window.addEventListener('pointermove', (e) => {
+    if (pointerDownStartTime > 0 && !longPressTriggeredThisHold) {
+      const moveDistX = Math.abs(e.clientX - startX);
+      const moveDistY = Math.abs(e.clientY - startY);
+      if (moveDistX > 15 || moveDistY > 15) {
+        pointerDownStartTime = 0;
+      }
+    }
+
+    if (!isOnModel) return;
+    const diffX = e.clientX - startX; 
+    const diffY = startY - e.clientY; 
+    
+    if (Math.abs(diffX) < 35 && Math.abs(diffY) < 35) {
+        swipeAxis = null;
+    } else if (!swipeAxis && (Math.abs(diffX) > 35 || Math.abs(diffY) > 35)) {
+      swipeAxis = Math.abs(diffX) > Math.abs(diffY) ? 'x' : 'y';
+      isHoldingForParam8 = false; 
+    }
+    
+    if (!legsWereOpenAtStart) {
+      if (startY > window.innerHeight * 0.42) {
+        if (swipeAxis === 'x' && Math.abs(diffX) > 40 && !swipeActionTriggered) {
+          targetParam9 = 1;
+          targetParam11 = 0; 
+          targetParam3 = -1;
+          targetParam = -1;
+          swipeActionTriggered = true;
+          spawnFloatingText(e.clientX, e.clientY, "把腿掰開了... ❤️", "#ffb3c6", 1800, "28px");
+        } 
+        else if (swipeAxis === 'y' && !swipeActionTriggered) {
+          if (diffY > 40) {
+            if (targetParam10 === 0) {
+              targetParam10 = 1;
+              targetClothes = 1; 
+              swipeActionTriggered = true; 
+              spawnFloatingText(e.clientX, e.clientY, "內褲被脫掉了...", "#ff69b4", 1800, "28px");
+            } else if (targetParam10 === 1 && targetParam11 === 0) {
+              targetParam11 = 1;
+              swipeActionTriggered = true;
+              spawnFloatingText(e.clientX, e.clientY, "不要看...", "#ffb3c6", 1800, "28px");
+            }
+          } 
+          else if (diffY < -40) {
+            if (targetParam11 === 1) {
+              targetParam11 = 0;
+              swipeActionTriggered = true;
+              spawnFloatingText(e.clientX, e.clientY, "討厭啦...", "#ffb3c6", 1800, "28px");
+            } else if (targetParam11 === 0 && targetParam10 === 1) {
+              targetParam10 = 0;
+              targetClothes = -1; 
+              isParam2Locked = false;
+              swipeActionTriggered = true;
+              spawnFloatingText(e.clientX, e.clientY, "穿回內褲...", "#ffb3c6", 1500, "28px");
+            }
+          }
+        }
+      }
+      return; 
+    }
+
+    if (swipeAxis === 'x') {
+      if (targetParam10 === 1 && !swipeActionTriggered) {
+        if (Math.abs(diffX) > 40) {
+          targetParam9 = 0;
+          swipeActionTriggered = true;
+          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
+        }
+      } 
+      else if (targetParam10 === 0 && targetClothes === -1 && !isParam2Locked) { 
+        if (diffX > 0) {
+          targetParam3 = diffX < 40 ? -1 : (diffX < 100 ? 0 : 1); targetParam = -1; 
+        } else {
+          const moveLeft = Math.abs(diffX);
+          targetParam = moveLeft < 40 ? -1 : (moveLeft < 100 ? 0 : 1); targetParam3 = -1;
+        }
+        if (targetParam3 === -1) isParam3Locked = false;
+        if (targetParam === -1) isParamLocked = false;
+      }
+    } else if (swipeAxis === 'y') {
+      if (!isParam3Locked && !isParamLocked && targetParam3 === -1 && targetParam === -1) {
+        if (diffY > 0) {
+          if (isParam2Locked) targetParam5 = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+          else {
+            if (targetParam10 === 1) {
+              targetClothes = 1;
+            } else {
+              targetClothes = diffY < 30 ? -1 : (diffY < 120 ? 0 : 1);
+            }
+          }
+        } else {
+          if (!isParam7Locked) {
+            const down = Math.abs(diffY);
+            if (down < 30) targetParam7 = -1;
+            else if (down < 80) targetParam7 = 0.8;
+            else if (down < 140) targetParam7 = 1.6;
+            else if (down < 200) targetParam7 = 2.4;
+            else targetParam7 = 2.8;
+          }
+        }
+      }
+    }
+  });
+  
+  window.addEventListener('pointerup', () => { 
+    pointerDownStartTime = 0; 
+
+    if (!isOnModel) return;
+    isOnModel = false; 
+    swipeAxis = null;
+    isHoldingForParam8 = false;
+    swipeActionTriggered = false; 
+
+    if (targetParam9 === 1) {
+      if (targetClothes === 1 && !isParam2Locked) { isParam2Locked = true; lockHistory.push('Param2'); }
+      if (targetParam7 === 2.8 && !isParam7Locked) { isParam7Locked = true; lockHistory.push('Param7'); }
+      if (targetParam3 === 1 && !isParam3Locked) { isParam3Locked = true; lockHistory.push('Param3'); }
+      if (targetParam === 1 && !isParamLocked) { isParamLocked = true; lockHistory.push('Param'); }
+    }
+
+    targetParam5 = -1;
+    hasCountedThisSwipe = false; 
+
+    if (!isParam3Locked) targetParam3 = -1;
+    if (!isParamLocked) targetParam = -1; 
+  });
+}
+
+/**
+ * 🚀 主啟動函數
+ */
+async function start() {
+  try {
+    document.title = "掰穴模擬器";
+
+    createLoadingUI();
+    await updateLoadingText("初始化 WebGL 繪圖引擎...");
+
+    document.documentElement.style.width = '100%'; document.documentElement.style.height = '100%';
+    document.body.style.width = '100%'; document.body.style.height = '100%';
+    document.body.style.margin = '0'; document.body.style.overflow = 'hidden'; document.body.style.backgroundColor = 'transparent';
+
+    const Live2DModel = PIXI.live2d.Live2DModel;
+    Live2DModel.registerTicker(PIXI.Ticker);
+
+    app = new PIXI.Application({
+      resizeTo: window, backgroundAlpha: 0, antialias: true, 
+      resolution: Math.max(window.devicePixelRatio, 2), autoDensity: true, powerPreference: 'high-performance',
+    });
+
+    app.view.style.position = "absolute"; app.view.style.top = "0"; app.view.style.left = "0";
+    app.view.style.width = "100vw"; app.view.style.height = "100vh"; app.view.style.zIndex = "1";
+    document.body.appendChild(app.view);
+
+    await updateLoadingText("下載與解析 Live2D 模型檔案...");
+    const modelPath = "public/model/model.model3.json";
+    model = await Live2DModel.from(modelPath, { autoUpdate: true });
+
+    await updateLoadingText("優化高畫質材質貼圖...");
+    const textures = model.textures || model.internalModel?.textures || [];
+    textures.forEach((tex) => {
+      if (tex && tex.baseTexture) {
+        tex.baseTexture.mipmap = (PIXI.MIPMAP_MODES && PIXI.MIPMAP_MODES.ON !== undefined) ? PIXI.MIPMAP_MODES.ON : 1; 
+        tex.baseTexture.anisotropicLevel = 16;
+        tex.baseTexture.scaleMode = (PIXI.SCALE_MODES && PIXI.SCALE_MODES.LINEAR !== undefined) ? PIXI.SCALE_MODES.LINEAR : 1; 
+      }
+    });
+    
+    await updateLoadingText("配置互動與 UI 介面...");
+    userScaleOffset = 0.5;
+    createZoomButtons(); 
+    createEffectContainer(); 
+    createInvisibleHitbox(); 
+
+    setupCounter();
+    createCharacterTagUI(); 
+    createTreatmentUI(); 
+
+    window.model = model;
+    app.stage.addChild(model);
+    model.internalModel.eyeBlink = null;
+
+    setupPiP(); 
+    setupInteraction(); 
+    startBlinkLoop();
+    startEyeLookLoop(); 
+    app.ticker.add(updateParams);
+    
+    await updateLoadingText("準備完成！");
+    resize();
+
+    requestAnimationFrame(() => {
+        resize(); app.render(); 
+        requestAnimationFrame(() => {
+            resize(); setTimeout(hideLoadingUI, 300);
+            setTimeout(() => { resize(); if (app.render) app.render(); }, 100);
+            setTimeout(() => { resize(); if (app.render) app.render(); }, 300);
+        });
+    });
+    
+    window.addEventListener("resize", () => {
+        resize(); createZoomButtons();
+    });
+  } catch (err) { 
+    console.error("啟動失敗:", err); 
+    await updateLoadingText("載入失敗，請重新整理網頁！");
+  }
+}
+
+/**
+ * 網頁載入完成後啟動
+ */
+window.addEventListener('DOMContentLoaded', start);
     setTimeout(() => {
       if (isOnModel || isHoldingForParam8 || targetParam5 > 0) {
         loop();
