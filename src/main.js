@@ -39,7 +39,7 @@ let lockHistory = [];
 let lastTapTime = 0;
 let pointerDownStartTime = 0; 
 let swipeActionTriggered = false; // 確保單次滑動手勢僅觸發單一階段變更
-let legsWereOpenAtStart = false;  // 🌟 核心新增：記錄每次觸碰開始時大腿的開合狀態，建立手勢隔離防禦網
+let legsWereOpenAtStart = false;  // 記錄每次觸碰開始時大腿的開合狀態，建立手勢隔離防禦網
 
 // 📊 全網實時計數器狀態 (徹底拔除本機暫存，100% 信任雲端與台灣時間結算)
 let globalTotalCount = 0;
@@ -427,8 +427,15 @@ function createInvisibleHitbox() {
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
       } else {
-        // 完全解鎖時的雙擊階梯還原反向鏈
-        if (targetParam9 === 1) {
+        // 🌟 核心功能修正：雙擊階梯還原判定鏈 (大腿打開時的獨立逆向分支)
+        if (targetParam9 === 1 && targetParam10 === 1) {
+          // A. 大腿打開且沒穿內褲 -> 雙擊第一步：優先恢復內褲，大腿保持打開
+          targetParam10 = 0;
+          targetClothes = -1; 
+          isParam2Locked = false;
+          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
+        } else if (targetParam9 === 1 && targetParam10 === 0) {
+          // B. 大腿打開且已有內褲 -> 雙擊第二步：合上大腿
           targetParam9 = 0;
           spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
         } else if (targetParam11 === 1) {
@@ -438,7 +445,7 @@ function createInvisibleHitbox() {
           targetParam10 = 0;
           targetClothes = -1; 
           isParam2Locked = false;
-          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...", "#ffb3c6", 1500, "28px");
+          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
         }
       }
     }
@@ -450,7 +457,7 @@ function createInvisibleHitbox() {
       startX = e.clientX; startY = e.clientY;
       swipeAxis = null;
       isHoldingForParam8 = true;
-      legsWereOpenAtStart = (targetParam9 === 1); // 同步記錄起始狀態
+      legsWereOpenAtStart = (targetParam9 === 1); 
       spawnFloatingText(e.clientX + 30, e.clientY - 60, "嗯...❤️", "#ffb3c6", 1500, "28px");
     }
   });
@@ -740,10 +747,17 @@ function setupInteraction() {
         else if (lastLocked === 'Param3') { isParam3Locked = false; targetParam3 = -1; }
         else if (lastLocked === 'Param') { isParamLocked = false; targetParam = -1; }
       } else {
-        // 完全解鎖時的雙擊階梯還原反向鏈
-        if (targetParam9 === 1) {
+        // 🌟 核心功能修正：雙擊階梯還原判定鏈 (大腿打開時的獨立逆向分支)
+        if (targetParam9 === 1 && targetParam10 === 1) {
+          // A. 大腿打開且沒穿內褲 -> 雙擊第一步：優先恢復內褲，大腿保持打開
+          targetParam10 = 0;
+          targetClothes = -1; 
+          isParam2Locked = false;
+          spawnFloatingText(e.clientX, e.clientY, "穿回內褲...👙", "#ffb3c6", 1500, "28px");
+        } else if (targetParam9 === 1 && targetParam10 === 0) {
+          // B. 大腿打開且已有內褲 -> 雙擊第二步：合上大腿
           targetParam9 = 0;
-          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...", "#ffb3c6", 1500, "28px");
+          spawnFloatingText(e.clientX, e.clientY, "大腿合上了...🔒", "#ffb3c6", 1500, "28px");
         } else if (targetParam11 === 1) {
           targetParam11 = 0;
           spawnFloatingText(e.clientX, e.clientY, "收回絲襪參數...✨", "#ffb3c6", 1500, "28px");
@@ -768,7 +782,7 @@ function setupInteraction() {
     startY = e.data.originalEvent.clientY || e.data.global.y; 
     swipeAxis = null; 
     swipeActionTriggered = false; 
-    legsWereOpenAtStart = (targetParam9 === 1); // 🌟 每次點擊瞬間，精準錨定大腿的起始開合狀態
+    legsWereOpenAtStart = (targetParam9 === 1); 
   });
   
   window.addEventListener('pointermove', (e) => {
@@ -789,9 +803,8 @@ function setupInteraction() {
         // 1. 橫向滑動：正常掰開大腿
         if (swipeAxis === 'x' && Math.abs(diffX) > 40 && !swipeActionTriggered) {
           targetParam9 = 1;
-          targetParam11 = 0; // 掰開大腿的瞬間，立刻斬斷並歸零 Param11 狀態
+          targetParam11 = 0; 
           
-          // 🌟 核心修正：開腿的這趟手勢中，強制將內褲左右拉扯參數回歸完美預設值 (-1)，絕不變形
           targetParam3 = -1;
           targetParam = -1;
           
@@ -829,7 +842,7 @@ function setupInteraction() {
           }
         }
       }
-      return; // 🌟 核心保險：只要本次滑動是從「合腿」發起的，就此攔截返回，絕對不允許在此滑動中穿透到下方的十字操控！
+      return; 
     }
 
     // 🔓 關卡 B：大腿在「開始滑動前」就已經是完全開啟的狀態 (必須是另一次獨立的新滑動)
