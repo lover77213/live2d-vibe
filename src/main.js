@@ -35,11 +35,14 @@ let lockHistory = [];
 let lastTapTime = 0;
 let pointerDownStartTime = 0; 
 
-// 📊 全網實時計數器狀態 (徹底拔除本機暫存，100% 信任雲端)
-let globalOpenCount = 0;
+// 📊 全網實時計數器狀態 (徹底拔除本機暫存，100% 信任雲端與台灣時間結算)
+let globalTotalCount = 0;
+let globalDailyCount = 0;
 let hasCountedThisSwipe = false; 
 const COUNTER_NAMESPACE = 'waifu_live2d_project_2026'; 
-const COUNTER_KEY = 'interactive_clicks'; 
+const KEY_TOTAL = 'interactive_clicks'; 
+const KEY_DAILY = 'interactive_clicks_daily'; 
+const KEY_LAST_DATE = 'interactive_last_date'; // 用於記錄最後同步的台灣日期
 const ABACUS_URL = 'https://abacus.jasoncameron.dev';
 
 let userScaleOffset = 0.5; 
@@ -69,7 +72,6 @@ function createLoadingUI() {
     z-index: 99999; transition: opacity 0.5s ease-out;
   `;
   
-  // 動畫樣式
   const style = document.createElement('style');
   style.textContent = `
     @keyframes loader-spin {
@@ -83,7 +85,6 @@ function createLoadingUI() {
   `;
   document.head.appendChild(style);
 
-  // 旋轉圈圈
   const spinner = document.createElement('div');
   spinner.style.cssText = `
     width: 60px; height: 60px; border: 6px solid rgba(255, 179, 198, 0.2);
@@ -92,7 +93,6 @@ function createLoadingUI() {
     box-shadow: 0 0 15px rgba(255, 179, 198, 0.4);
   `;
   
-  // 文字提示
   const text = document.createElement('div');
   text.id = 'app-loader-text';
   text.style.cssText = `
@@ -107,14 +107,12 @@ function createLoadingUI() {
   document.body.appendChild(loader);
 }
 
-// ⏳ 更新載入文字 (並強制瀏覽器重新渲染畫面)
 async function updateLoadingText(msg) {
   const el = document.getElementById('app-loader-text');
   if (el) el.innerText = msg;
   await new Promise(resolve => requestAnimationFrame(resolve));
 }
 
-// ⏳ 移除載入畫面
 function hideLoadingUI() {
   const el = document.getElementById('app-loader');
   if (el) {
@@ -124,7 +122,21 @@ function hideLoadingUI() {
 }
 
 /**
- * 📊 建立與初始化全網計數器 UI (100% 雲端同步無阻擋版)
+ * 獲取當前台灣時間（UTC+8）的日期字串 (YYYY-MM-DD)
+ */
+function getTaiwanDateString() {
+  const d = new Date();
+  // 轉換為台灣時間的整數時間戳
+  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+  const twTime = new Date(utc + (3600000 * 8));
+  const yyyy = twTime.getFullYear();
+  const mm = String(twTime.getMonth() + 1).padStart(2, '0');
+  const dd = String(twTime.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * 📊 建立與初始化雙層計數器 UI (包含今日與總計數)
  */
 function setupCounter() {
   const counterDiv = document.createElement('div');
@@ -134,75 +146,130 @@ function setupCounter() {
     bottom: 140px; 
     left: 50%; 
     transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.65);
+    background: rgba(0, 0, 0, 0.7);
     border: 2px solid #ffb3c6;
-    border-radius: 30px;
-    padding: 10px 25px;
+    border-radius: 20px;
+    padding: 12px 30px;
     color: #ffffff;
     font-family: sans-serif;
-    font-size: 20px;
     font-weight: bold;
     text-align: center;
-    box-shadow: 0 4px 15px rgba(255, 179, 198, 0.4);
+    box-shadow: 0 6px 20px rgba(255, 179, 198, 0.35);
     z-index: 10000;
     pointer-events: none;
     user-select: none;
     white-space: nowrap;
     transition: transform 0.1s ease-out;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   `;
   document.body.appendChild(counterDiv);
 
-  counterDiv.innerHTML = `所有玩家總掰穴次數: <span style="color: #ffb3c6; font-size: 24px;">...</span>`;
+  // 初始化雙層顯示結構
+  counterDiv.innerHTML = `
+    <div style="font-size: 16px; color: #ffb3c6;">今日被掰穴次數: <span id="count-daily" style="font-size: 18px; color: #ffb3c6;">...</span></div>
+    <div style="font-size: 18px; color: #ffffff; border-top: 1px solid rgba(255, 179, 198, 0.3); padding-top: 4px; margin-top: 2px;">
+      所有玩家總掰穴次數: <span id="count-total" style="font-size: 22px; color: #ff4d88;">...</span>
+    </div>
+  `;
 
   syncWithCloud();
   setInterval(syncWithCloud, 4000);
 }
 
+/**
+ * 🌟 從雲端同步日計數器與總計數器，並處理台灣時間跨天歸零結算邏輯
+ */
 function syncWithCloud() {
   const ts = Date.now();
-  fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${COUNTER_KEY}?_=${ts}`)
+  const currentDate = getTaiwanDateString();
+
+  // 1. 先確認伺服器上記錄的最後日期，用來判斷是否跨天
+  fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?_=${ts}`)
     .then(res => res.json())
-    .then(data => {
-      if (data && typeof data.value === 'number') {
-        updateCounterUI(data.value);
+    .then(dateData => {
+      const serverSavedDate = dateData && dateData.value ? String(dateData.text || dateData.value) : currentDate;
+
+      // 如果雲端日期與當前台灣日期不同，代表到了台灣時間隔天，執行跨天歸零結算
+      if (serverSavedDate !== currentDate) {
+        // 將舊日計數器的值讀出來，加到總計數器中，隨後將日計數器重置為 0
+        fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`)
+          .then(res => res.json())
+          .then(dailyData => {
+            const expiredDailyValue = (dailyData && dailyData.value) ? dailyData.value : 0;
+            
+            // 將過期數值疊加到總計數器中
+            if (expiredDailyValue > 0) {
+              fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?step=${expiredDailyValue}&_=${Date.now()}`);
+            }
+            // 重置日計數器為 0 (透過更新 API 覆蓋)
+            fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_DAILY}?value=0&_=${Date.now()}`);
+            // 更新伺服器日期標籤為新的一天
+            fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${Date.now()}`);
+            
+            // 本地立即更新反應
+            globalDailyCount = 0;
+            updateCounterUI(globalTotalCount + expiredDailyValue, 0);
+          }).catch(() => {});
+      } else {
+        // 日期正常，常規獲取最新的日次數與總次數
+        Promise.all([
+          fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`).then(r => r.json()),
+          fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`).then(r => r.json())
+        ]).then(([totalData, dailyData]) => {
+          const tVal = totalData && typeof totalData.value === 'number' ? totalData.value : globalTotalCount;
+          const dVal = dailyData && typeof dailyData.value === 'number' ? dailyData.value : globalDailyCount;
+          updateCounterUI(tVal, dVal);
+        }).catch(() => {});
       }
     })
-    .catch(() => {});
-}
-
-function incrementGlobalCount() {
-  globalOpenCount++;
-  updateCounterUI(globalOpenCount);
-  
-  const ts = Date.now();
-  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${COUNTER_KEY}?_=${ts}`)
-    .then(res => res.json())
-    .then(data => {
-      if (data && typeof data.value === 'number') {
-        updateCounterUI(data.value);
-      }
-    })
-    .catch(() => {});
-}
-
-function updateCounterUI(serverValue) {
-  if (serverValue > globalOpenCount) {
-    globalOpenCount = serverValue;
-  }
-  
-  const counterDiv = document.getElementById('global-counter-ui');
-  if (!counterDiv) return;
-  
-  counterDiv.innerHTML = `所有玩家總掰穴次數: <span style="color: #ff4d88; font-size: 24px;">${globalOpenCount}</span>`;
-  
-  counterDiv.style.transform = 'translateX(-50%) scale(1.15)';
-  setTimeout(() => {
-    if (counterDiv) counterDiv.style.transform = 'translateX(-50%) scale(1)';
-  }, 150);
+    .catch(() => {
+      // 降級常規獲取
+      fetch(`${ABACUS_URL}/get/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`)
+        .then(res => res.json()).then(d => d && updateCounterUI(d.value, globalDailyCount)).catch(() => {});
+    });
 }
 
 /**
- * 📏 自動縮放與畫質維持 (加入 Canvas 畫布強制同步尺寸，防壓扁)
+ * 🌟 玩家完成一次滑動掰穴時，同時向雲端發送總數與日數 +1 請求
+ */
+function incrementGlobalCount() {
+  globalTotalCount++;
+  globalDailyCount++;
+  updateCounterUI(globalTotalCount, globalDailyCount);
+  
+  const ts = Date.now();
+  const currentDate = getTaiwanDateString();
+
+  // 同步向雲端雙通道 HITS 觸發
+  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_TOTAL}?_=${ts}`);
+  fetch(`${ABACUS_URL}/hit/${COUNTER_NAMESPACE}/${KEY_DAILY}?_=${ts}`);
+  // 順便修正/確保當前的雲端日期錨點是正確的
+  fetch(`${ABACUS_URL}/update/${COUNTER_NAMESPACE}/${KEY_LAST_DATE}?value=0&text=${currentDate}&_=${ts}`);
+}
+
+function updateCounterUI(serverTotal, serverDaily) {
+  if (serverTotal > globalTotalCount) globalTotalCount = serverTotal;
+  if (serverDaily > globalDailyCount) globalDailyCount = serverDaily;
+  
+  const dailyEl = document.getElementById('count-daily');
+  const totalEl = document.getElementById('count-total');
+  const counterDiv = document.getElementById('global-counter-ui');
+  
+  if (dailyEl) dailyEl.innerText = globalDailyCount;
+  if (totalEl) totalEl.innerText = globalTotalCount;
+  
+  if (counterDiv) {
+    counterDiv.style.transform = 'translateX(-50%) scale(1.08)';
+    setTimeout(() => {
+      if (counterDiv) counterDiv.style.transform = 'translateX(-50%) scale(1)';
+    }, 120);
+  }
+}
+
+/**
+ * 📏 自動縮放與畫質維持
  */
 function resize() {
   if (!model || !app) return;
@@ -237,7 +304,7 @@ function resize() {
     if (btnPlus && btnMinus && btnX2) {
       const btnSize = isMobile ? '97.5px' : '65px'; 
       const fontSize = isMobile ? '52.5px' : '35px'; 
-      const x2FontSize = isMobile ? '42px' : '28px'; // X2 字體稍微調整更美觀
+      const x2FontSize = isMobile ? '42px' : '28px';
       
       btnX2.style.width = btnSize; btnX2.style.height = btnSize; btnX2.style.fontSize = x2FontSize;
       btnPlus.style.width = btnSize; btnPlus.style.height = btnSize; btnPlus.style.fontSize = fontSize;
@@ -253,7 +320,7 @@ function resize() {
 }
 
 /**
- * 🎨 建立長按縮放與 X2 兩倍放大按鈕
+ * 🎨 建立長按縮放與可反悔切換的 X2 兩倍放大按鈕
  */
 function createZoomButtons() {
   if (document.getElementById('zoom-container')) return; 
@@ -272,16 +339,22 @@ function createZoomButtons() {
     user-select: none; touch-action: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
   `;
 
-  // 🌟 新增：X2 放大兩倍按鈕 (置於最上方)
+  // 🌟 已優化：支援再度點擊 X2 按鈕恢復原狀（0.5 預設大小）
   const btnX2 = document.createElement('button');
   btnX2.id = 'btn-zoom-x2';
   btnX2.innerText = 'X2';
   btnX2.style.cssText = btnStyle;
-  btnX2.style.color = '#ffb3c6'; // 給 X2 按鈕一個醒目的特殊粉色調
+  btnX2.style.color = '#ffb3c6'; 
   
   btnX2.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    userScaleOffset = 1.0; // 直接設定 offset 為 1.0 (原基礎 0.5 的 2 倍)
+    if (userScaleOffset === 1.0) {
+      userScaleOffset = 0.5; // 如果已經是2倍，再點一次恢復原狀 (0.5)
+      btnX2.style.color = '#ffb3c6'; // 恢復原本的粉色
+    } else {
+      userScaleOffset = 1.0; // 放大為 2 倍
+      btnX2.style.color = '#ff4d88'; // 變成深粉亮色代表正在啟用 X2
+    }
     resize();
     if (app.render) app.render();
   });
@@ -308,7 +381,6 @@ function createZoomButtons() {
     btnMinus.addEventListener(evt, stopZoom);
   });
 
-  // 按順序加入：X2 在最上面，接著 ＋，最後 －
   container.appendChild(btnX2);
   container.appendChild(btnPlus);
   container.appendChild(btnMinus);
@@ -534,7 +606,7 @@ function updateParams() {
     hitbox.style.display = isParam7Locked ? 'block' : 'none';
   }
 
-  // 🌟 全網計數器觸發判定
+  // 🌟 全網計數器觸發判定 (加算到今日與總計)
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
     incrementGlobalCount(); 
@@ -544,7 +616,6 @@ function updateParams() {
   if (pipContainer) {
     let pipTargetAlpha = 0.0;
     
-    // 🌟 保留你的長按邏輯：長按 1000 毫秒（1秒）觸發特寫
     if (isOnModel && pointerDownStartTime > 0 && (Date.now() - pointerDownStartTime >= 1000)) {
       pipTargetAlpha = 1.0;
     } 
@@ -568,7 +639,6 @@ function updateParams() {
   if (!model?.internalModel?.coreModel) return;
   const core = model.internalModel.coreModel;
   
-  // 彩蛋邏輯
   if (targetParam5 === 1 && !isParam6Triggered) {
     if (param5HoldStartTime === 0) param5HoldStartTime = Date.now(); 
     else if (Date.now() - param5HoldStartTime >= 3000) {
@@ -733,8 +803,6 @@ function setupInteraction() {
     if (targetParam === 1 && !isParamLocked) { isParamLocked = true; lockHistory.push('Param'); }
 
     targetParam5 = -1;
-    
-    // 鬆開時重置計數鎖定，必須重新滑動才會再次 +1
     hasCountedThisSwipe = false; 
 
     if (!isParam3Locked) targetParam3 = -1;
@@ -747,10 +815,8 @@ function setupInteraction() {
  */
 async function start() {
   try {
-    // 🌟 自動修正網頁標題名稱為「掰穴模擬器」
     document.title = "掰穴模擬器";
 
-    // 1. 建立並顯示全螢幕 Loading 動畫
     createLoadingUI();
     await updateLoadingText("初始化 WebGL 繪圖引擎...");
 
@@ -782,12 +848,10 @@ async function start() {
     app.view.style.zIndex = "1";
     document.body.appendChild(app.view);
 
-    // 2. 開始下載模型
     await updateLoadingText("下載與解析 Live2D 模型檔案...");
     const modelPath = "public/model/model.model3.json";
     model = await Live2DModel.from(modelPath, { autoUpdate: true });
 
-    // 3. 處理貼圖材質
     await updateLoadingText("優化高畫質材質貼圖...");
     const textures = model.textures || model.internalModel?.textures || [];
     textures.forEach((tex) => {
@@ -804,14 +868,12 @@ async function start() {
       }
     });
     
-    // 4. 配置互動與介面
     await updateLoadingText("配置互動與 UI 介面...");
     userScaleOffset = 0.5;
     createZoomButtons(); 
     createEffectContainer(); 
     createInvisibleHitbox(); 
 
-    // 🌟 啟動時建立 UI 並執行首次同步
     setupCounter();
 
     window.model = model;
@@ -823,10 +885,8 @@ async function start() {
     startBlinkLoop();
     app.ticker.add(updateParams);
     
-    // 5. 確保渲染畫面後關閉 Loading
     await updateLoadingText("準備完成！");
     
-    // 多重校正 pass 1
     resize();
 
     requestAnimationFrame(() => {
@@ -834,16 +894,13 @@ async function start() {
         app.render(); 
         requestAnimationFrame(() => {
             resize();
-            // 淡出並移除 Loading 畫面
             setTimeout(hideLoadingUI, 300);
 
-            // 多重校正 pass 2
             setTimeout(() => {
               resize();
               if (app.render) app.render();
             }, 100);
 
-            // 多重校正 pass 3
             setTimeout(() => {
               resize();
               if (app.render) app.render();
