@@ -392,7 +392,7 @@ function createTreatmentUI() {
       spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "⚠️ 必須先按下「掰開」才能擦藥！", "#ffcc00", 1800, "24px");
       return;
     }
-    targetParam14 = 0;             
+    targetParam14 = 0;              
     swipeCounterForSwelling = 0;    
     spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "擦藥治療成功，私處恢復原狀 ✨", "#a1c4fd", 2000, "26px");
   });
@@ -837,12 +837,13 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
     { transform: 'translate(-50%, -50%)', opacity: 0 },
     { transform: 'translate(-50%, -70%)', opacity: 1, offset: 0.1 },  
     { transform: 'translate(-50%, -100%)', opacity: 1, offset: 0.8 }, 
-    { transform: 'translate(-50%, -120%)', opacity: 0 }               
+    { transform: 'translate(-50%, -120%)', opacity: 0 }                
   ], { duration: duration, easing: 'ease-out', fill: 'forwards' });
 
   animation.onfinish = () => { textEl.remove(); };
 }
 
+// 移除原有的 30 次觸發福利照機制，僅保留流水特效機制
 function triggerClimaxEvents(x, y) {
   if (param8PressCount === 10) {
     targetParam12 = 1; 
@@ -851,16 +852,6 @@ function triggerClimaxEvents(x, y) {
   if (param8PressCount === 25) {
     hasTriggeredParam13Liquid = true;
     spawnFloatingText(x, y + 40, "受到刺激又流出來了...💧", "#00e5ff", 2500, "32px");
-  }
-  
-  if (param8PressCount === 30 && !sessionRewardShown) {
-    sessionRewardShown = true; 
-    if (!hasUnlockedReward) {
-      hasUnlockedReward = true;
-      const btn18 = getDOM('btn-reward-gallery');
-      if (btn18) btn18.style.display = 'flex'; 
-    }
-    showRewardModal(); 
   }
 }
 
@@ -1046,6 +1037,17 @@ function updateParams() {
   if (targetParam5 > 0 && !hasCountedThisSwipe) {
     hasCountedThisSwipe = true; 
     localSwipeCount++;
+
+    // 新增：Param5 掰穴動作達 30 次時觸發福利照機制的邏輯
+    if (localSwipeCount === 30 && !sessionRewardShown) {
+      sessionRewardShown = true; 
+      if (!hasUnlockedReward) {
+        hasUnlockedReward = true;
+        const btn18 = getDOM('btn-reward-gallery');
+        if (btn18) btn18.style.display = 'flex'; 
+      }
+      showRewardModal(); 
+    }
 
     if (targetParam10 === 1) {
       param8PressCount++;
