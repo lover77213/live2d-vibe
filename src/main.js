@@ -732,7 +732,7 @@ function createZoomButtons() {
     window.open('https://www.instagram.com/zzzzihhj/', '_blank');
   });
   btnIg.addEventListener('mouseenter', () => btnIg.style.transform = 'scale(1.1)');
-  btnIg.addEventListener('mouseleave', () => btnIg.style.transform = 'scale(1.1)');
+  btnIg.addEventListener('mouseleave', () => btnIg.style.transform = 'scale(1)');
 
   const btnPip = document.createElement('button');
   btnPip.id = 'btn-pip-toggle';
@@ -852,7 +852,16 @@ function triggerClimaxEvents(x, y) {
     hasTriggeredParam13Liquid = true;
     spawnFloatingText(x, y + 40, "受到刺激又流出來了...💧", "#00e5ff", 2500, "32px");
   }
-  // 依照要求，已經將 30 次彈出福利照的邏輯全部移除
+  
+  if (param8PressCount === 30 && !sessionRewardShown) {
+    sessionRewardShown = true; 
+    if (!hasUnlockedReward) {
+      hasUnlockedReward = true;
+      const btn18 = getDOM('btn-reward-gallery');
+      if (btn18) btn18.style.display = 'flex'; 
+    }
+    showRewardModal(); 
+  }
 }
 
 function createInvisibleHitbox() {
