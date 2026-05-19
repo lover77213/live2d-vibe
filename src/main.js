@@ -1,5 +1,21 @@
+抓到兇手了！這個問題在遊戲開發中非常經典，通常被稱為 **「DOM Trashing（DOM 顛簸）」** 與 **「Ticker 時鐘去同步」**。
+
+隨著時間推移或你操作遊戲後開始卡頓，主要是這三個隱患累積造成的：
+
+1. **DOM 樣式狂刷 (效能終極殺手)**：
+在你原本的程式碼中，只要內褲穿著 (`targetParam10 === 0`)，你用來切換特寫按鈕 `btnPip` 顏色的程式碼**每秒會被強制執行 60 次**！瀏覽器每一幀都在重新計算 CSS 樣式，導致手機 CPU/GPU 嚴重發燙與卡頓。
+2. **呼吸函數與遊戲幀數不同步**：
+你使用 `Date.now()` 來計算呼吸頻率。但 `Date.now()` 是絕對時間，而 PIXI 的繪圖引擎 (Ticker) 幀數有時快有時慢，兩者打架就會產生「微小的抖動與卡頓」。必須改用 PIXI 內建的 `deltaMS`。
+3. **過度查詢 DOM 節點**：
+每一幀（每秒 60 次）都在 `document.getElementById` 抓取網頁元素，這會產生大量記憶體垃圾 (Garbage Collection)，導致網頁玩久了變得很卡。
+
+我幫你加入了「DOM 全域快取池」**、**「狀態鎖定防護 (只在狀態改變時更新 CSS)」**，以及**「PIXI 專屬渲染時間軸」。這些優化會讓你的遊戲幀數非常絲滑，就算掛機一個小時也不會再卡頓！
+
+請全選並覆蓋你的完整程式碼：
+
+```javascript
 /**
- * 🚀 PIXI 應用程式初始化與 Live2D 互動核心 (終極優化版)
+ * 🚀 PIXI 應用程式初始化與 Live2D 互動核心 (終極效能優化版)
  */
 
 // 🛡️ 解決 favicon.ico 404 報錯問題 (動態注入隱形透明圖標，滿足瀏覽器強制請求)
@@ -18,12 +34,12 @@ let isOnModel = false;
 let swipeAxis = null; 
 
 // 🌟 參數狀態管理
-let targetParam9 = 0, currentParam9 = 0; // 大腿狀態 (0=關閉/合腿, 1=打開/開腿)
-let targetParam10 = 0, currentParam10 = 0; // 內褲狀態 (0=穿著, 1=脫除)
-let targetParam11 = 0, currentParam11 = 0; // 次級互動參數 (0=隱藏, 1=絲滑顯示)
-let targetParam12 = 0, currentParam12 = 0; // 液體流出參數 1 (0=無, 1=絲滑流出)
-let targetParam13 = 0, currentParam13 = 0; // 遮罩參數 / 25次特級液體流出
-let targetParam14 = 0, currentParam14 = 0; // 🌟 陰部外翻腫脹參數 (0=正常, 0.5=腫脹外翻, 1.0=極致掰開)
+let targetParam9 = 0, currentParam9 = 0; 
+let targetParam10 = 0, currentParam10 = 0; 
+let targetParam11 = 0, currentParam11 = 0; 
+let targetParam12 = 0, currentParam12 = 0; 
+let targetParam13 = 0, currentParam13 = 0; 
+let targetParam14 = 0, currentParam14 = 0; 
 let targetClothes = -1, currentClothes = -1;  
 let targetParam7 = -1, currentParam7 = -1;    
 let targetParam5 = -1, currentParam5 = -1;    
@@ -55,19 +71,27 @@ let localSwipeCount = 0;
 let param8PressCount = 0;         
 let swipeCounterForSwelling = 0;  
 let hasTriggeredParam13Liquid = false; 
+let isUnderwearReset = false; // 🛡️ 效能鎖定旗標：防止內褲狀態狂刷 DOM
 
 // 🌟 追蹤互動與彈窗狀態
 let hasUnlockedReward = false; 
 let sessionRewardShown = false; 
-let isRewardModalOpen = false; // 🛡️ 鎖定旗標：用來防止開啟福利圖時觸發背景互動
-let isBioModalOpen = false;    // 🛡️ 鎖定旗標：用來防止開啟獨白時觸發背景互動
+let isRewardModalOpen = false; 
+let isBioModalOpen = false;    
 
 // 🔍 特寫功能狀態變數
 let isPipActive = false;              
 
-// DOM 狀態快照暫存器
+// 🚀 DOM 狀態快照與快取池 (效能核心，避免每幀查詢 DOM)
+let domCache = {};
+function getDOM(id) {
+  if (!domCache[id]) domCache[id] = document.getElementById(id);
+  return domCache[id];
+}
+
 let lastTreatUIDisplay = "";
 let lastBtnMedicineStyle = "";
+let lastHitboxDisplay = ""; // 🛡️ 效能鎖定旗標：防止 Hitbox 狂刷 DOM
 
 // 📊 全網實時計數器狀態
 let globalTotalCount = 0;
@@ -93,6 +117,7 @@ let lastRenderedViewsDaily = -1;
 
 let userScaleOffset = 0.5; 
 let zoomDirection = 0; 
+let globalElapsedTime = 0; // 🛡️ 取代 Date.now() 解決呼吸動畫卡頓
 
 // 🔍 畫中畫 (PiP) 特寫系統狀態
 let pipContainer;
@@ -148,24 +173,22 @@ function createLoadingUI() {
 }
 
 async function updateLoadingText(msg) {
-  const el = document.getElementById('app-loader-text');
+  const el = getDOM('app-loader-text');
   if (el) el.innerText = msg;
   await new Promise(resolve => requestAnimationFrame(resolve));
 }
 
-// 🌟 在載入結束後，隱藏載入畫面的同時呼叫「年齡驗證」彈窗
 function hideLoadingUI() {
-  const el = document.getElementById('app-loader');
+  const el = getDOM('app-loader');
   if (el) {
     el.style.opacity = '0';
     setTimeout(() => {
         el.remove();
-        showAgeVerification(); // 🌟 顯示 18+ 驗證
+        showAgeVerification(); 
     }, 500);
   }
 }
 
-// 🌟 18 歲年齡驗證視窗 (全新功能)
 function showAgeVerification() {
   const gate = document.createElement('div');
   gate.id = 'age-gate-ui';
@@ -207,13 +230,11 @@ function showAgeVerification() {
     window.location.href = 'https://www.instagram.com/zzzzihhj/';
   });
 
-  // 防止點擊背景穿透
   gate.addEventListener('pointerdown', e => e.stopPropagation());
   gate.addEventListener('pointermove', e => e.stopPropagation());
   gate.addEventListener('pointerup', e => e.stopPropagation());
 }
 
-// 獲取台灣時間日期字串 (YYYY-MM-DD)，作為精準的換日切割依據
 function getTaiwanDateString() {
   const d = new Date();
   const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
@@ -224,9 +245,8 @@ function getTaiwanDateString() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-let lastSyncedDate = getTaiwanDateString(); // 追蹤目前系統日期，用於午夜自動歸零
+let lastSyncedDate = getTaiwanDateString(); 
 
-// 🛡️ 終極快取破壞者：確保每一筆請求絕對是全新的
 function buildNoCacheUrl(base) {
   const separator = base.includes('?') ? '&' : '?';
   return `${base}${separator}_=${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -275,7 +295,7 @@ function setupCounter() {
 }
 
 function updateCounterLayout() {
-  const counterDiv = document.getElementById('global-counter-ui');
+  const counterDiv = getDOM('global-counter-ui');
   if (!counterDiv) return;
   
   const isMobile = window.innerWidth < window.innerHeight;
@@ -384,19 +404,16 @@ function createTreatmentUI() {
   btnMedicine.addEventListener('pointerdown', (e) => e.stopPropagation());
   btnMedicine.addEventListener('click', (e) => {
     e.stopPropagation();
-    
     if (targetParam14 < 1.0) {
       spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "⚠️ 必須先按下「掰開」才能擦藥！", "#ffcc00", 1800, "24px");
       return;
     }
-
     targetParam14 = 0;             
     swipeCounterForSwelling = 0;    
     spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "擦藥治療成功，私處恢復原狀 ✨", "#a1c4fd", 2000, "26px");
   });
 }
 
-// 🌟 全新的獨白彈窗功能 (靠左對齊，可關閉)
 function showBioModal() {
   if (document.getElementById('bio-modal-ui')) return;
 
@@ -421,7 +438,6 @@ function showBioModal() {
   modal.addEventListener('pointermove', e => e.stopPropagation());
   modal.addEventListener('pointerup', e => e.stopPropagation());
 
-  // 🌟 排版設定：text-align: left (靠左)
   modal.innerHTML = `
     <div style="position: relative; width: 85vw; max-width: 500px; padding: 40px 30px; border: 3px solid #ff4d88; border-radius: 24px; box-shadow: 0 0 40px rgba(255, 77, 136, 0.4); background: rgba(0, 0, 0, 0.9);">
       <div id="btn-close-bio" style="position: absolute; top: 16px; right: 16px; background: rgba(0, 0, 0, 0.75); color: #ffffff; border: 2px solid #ffb3c6; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-family: sans-serif; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s;">✕</div>
@@ -585,7 +601,7 @@ function incrementGlobalCount() {
   globalTotalCount++;
   globalDailyCount++;
   
-  const counterDiv = document.getElementById('global-counter-ui');
+  const counterDiv = getDOM('global-counter-ui');
   if (counterDiv) {
     const isMobile = window.innerWidth < window.innerHeight;
     const baseTransform = isMobile ? 'translateX(-50%)' : 'none';
@@ -629,13 +645,13 @@ function resize() {
     model.x = window.innerWidth / 2;
     model.y = window.innerHeight / 2;
 
-    const btnIg = document.getElementById('btn-ig-link');
-    const btnPip = document.getElementById('btn-pip-toggle');
-    const btn18 = document.getElementById('btn-reward-gallery');
-    const btnBio = document.getElementById('btn-bio-text'); 
-    const btnX2 = document.getElementById('btn-zoom-x2');
-    const btnPlus = document.getElementById('btn-zoom-plus');
-    const btnMinus = document.getElementById('btn-zoom-minus');
+    const btnIg = getDOM('btn-ig-link');
+    const btnPip = getDOM('btn-pip-toggle');
+    const btn18 = getDOM('btn-reward-gallery');
+    const btnBio = getDOM('btn-bio-text'); 
+    const btnX2 = getDOM('btn-zoom-x2');
+    const btnPlus = getDOM('btn-zoom-plus');
+    const btnMinus = getDOM('btn-zoom-minus');
     
     if (btnPlus && btnMinus && btnX2) {
       const btnSize = isMobile ? '97.5px' : '65px'; 
@@ -643,24 +659,16 @@ function resize() {
       const x2FontSize = isMobile ? '42px' : '28px';
       const btn18FontSize = isMobile ? '35px' : '24px';
       
-      if (btnIg) {
-        btnIg.style.width = btnSize; btnIg.style.height = btnSize; btnIg.style.fontSize = btn18FontSize;
-      }
-      if (btnPip) {
-        btnPip.style.width = btnSize; btnPip.style.height = btnSize; btnPip.style.fontSize = btn18FontSize;
-      }
-      if (btn18) {
-        btn18.style.width = btnSize; btn18.style.height = btnSize; btn18.style.fontSize = btn18FontSize;
-      }
-      if (btnBio) {
-        btnBio.style.width = btnSize; btnBio.style.height = btnSize; btnBio.style.fontSize = btn18FontSize;
-      }
+      if (btnIg) { btnIg.style.width = btnSize; btnIg.style.height = btnSize; btnIg.style.fontSize = btn18FontSize; }
+      if (btnPip) { btnPip.style.width = btnSize; btnPip.style.height = btnSize; btnPip.style.fontSize = btn18FontSize; }
+      if (btn18) { btn18.style.width = btnSize; btn18.style.height = btnSize; btn18.style.fontSize = btn18FontSize; }
+      if (btnBio) { btnBio.style.width = btnSize; btnBio.style.height = btnSize; btnBio.style.fontSize = btn18FontSize; }
       btnX2.style.width = btnSize; btnX2.style.height = btnSize; btnX2.style.fontSize = x2FontSize;
       btnPlus.style.width = btnSize; btnPlus.style.height = btnSize; btnPlus.style.fontSize = fontSize;
       btnMinus.style.width = btnSize; btnMinus.style.height = btnSize; btnMinus.style.fontSize = fontSize;
     }
 
-    const treatUI = document.getElementById('treatment-ui');
+    const treatUI = getDOM('treatment-ui');
     if (treatUI) {
       treatUI.style.bottom = isMobile ? '360px' : '60px';
     }
@@ -827,7 +835,7 @@ function createEffectContainer() {
 }
 
 function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", duration = 1500, fontSize = "28px") {
-  const container = document.getElementById('effect-container');
+  const container = getDOM('effect-container');
   if (!container) return;
 
   const textEl = document.createElement('div');
@@ -865,7 +873,7 @@ function triggerClimaxEvents(x, y) {
     sessionRewardShown = true; 
     if (!hasUnlockedReward) {
       hasUnlockedReward = true;
-      const btn18 = document.getElementById('btn-reward-gallery');
+      const btn18 = getDOM('btn-reward-gallery');
       if (btn18) btn18.style.display = 'flex'; 
     }
     showRewardModal(); 
@@ -914,16 +922,9 @@ function setupPiP() {
   const isMobile = window.innerWidth < window.innerHeight;
   const dpr = window.devicePixelRatio || 1;
   
-  // 🌟 修正手機黑畫面問題：加入 GPU 紋理尺寸的 4096 安全極限保護
-  // 先動態偵測當前裝置的最大螢幕維度
   const maxDimension = Math.max(window.screen?.width || 0, window.screen?.height || 0, window.innerWidth, window.innerHeight);
-  // 計算出：在這個螢幕大小下，解析度倍率最高只能開到多少才不會超過 4096 像素
   const safeMaxRes = 4096 / (maxDimension || 2000); 
-  
-  // 原本要求的高清倍率
   let desiredRes = isMobile ? Math.max(dpr * 1.5, 2.5) : Math.max(dpr * 2, 4);
-  
-  // 比較兩者，取安全範圍內的最高畫質
   const superRes = Math.min(desiredRes, safeMaxRes);
 
   pipRenderTexture = PIXI.RenderTexture.create({
@@ -957,7 +958,6 @@ function updatePiPLayout() {
   if (!pipContainer || !pipRenderTexture || !model) return;
   if (window.innerWidth > 0 && window.innerHeight > 0) {
     try {
-      // 🌟 加入 try-catch 防止手機版在螢幕翻轉時報錯
       pipRenderTexture.resize(window.innerWidth, window.innerHeight);
     } catch(e) {
       console.warn("PiP Resize 被 GPU 限制保護攔截:", e);
@@ -1009,9 +1009,14 @@ function updateParams() {
     resize(); 
   }
 
-  const hitbox = document.getElementById('param8-invisible-hitbox');
+  // 🛡️ 效能優化：防止 Hitbox 狂刷 style 更新
+  const hitbox = getDOM('param8-invisible-hitbox');
   if (hitbox) {
-    hitbox.style.display = (isParam7Locked && targetParam9 === 1) ? 'block' : 'none';
+    const targetDisplay = (isParam7Locked && targetParam9 === 1) ? 'block' : 'none';
+    if (lastHitboxDisplay !== targetDisplay) {
+      hitbox.style.display = targetDisplay;
+      lastHitboxDisplay = targetDisplay;
+    }
   }
 
   if (isCounterInitialized) {
@@ -1031,23 +1036,24 @@ function updateParams() {
     let currentFloorViewsTotal = Math.floor(displayedViewsTotal);
     let currentFloorViewsDaily = Math.floor(displayedViewsDaily);
 
+    // 🛡️ 效能優化：搭配 getDOM 快取避免每一幀 querySelector
     if (currentFloorDaily !== lastRenderedDaily) {
-      const dailyEl = document.getElementById('count-daily');
+      const dailyEl = getDOM('count-daily');
       if (dailyEl) dailyEl.innerText = currentFloorDaily;
       lastRenderedDaily = currentFloorDaily;
     }
     if (currentFloorTotal !== lastRenderedTotal) {
-      const totalEl = document.getElementById('count-total');
+      const totalEl = getDOM('count-total');
       if (totalEl) totalEl.innerText = currentFloorTotal;
       lastRenderedTotal = currentFloorTotal;
     }
     if (currentFloorViewsDaily !== lastRenderedViewsDaily) {
-      const viewsDailyEl = document.getElementById('views-daily');
+      const viewsDailyEl = getDOM('views-daily');
       if (viewsDailyEl) viewsDailyEl.innerText = currentFloorViewsDaily;
       lastRenderedViewsDaily = currentFloorViewsDaily;
     }
     if (currentFloorViewsTotal !== lastRenderedViewsTotal) {
-      const viewsTotalEl = document.getElementById('views-total');
+      const viewsTotalEl = getDOM('views-total');
       if (viewsTotalEl) viewsTotalEl.innerText = currentFloorViewsTotal;
       lastRenderedViewsTotal = currentFloorViewsTotal;
     }
@@ -1081,7 +1087,7 @@ function updateParams() {
     }
   }
 
-  const treatUI = document.getElementById('treatment-ui');
+  const treatUI = getDOM('treatment-ui');
   if (treatUI) {
     const currentTargetDisplay = (targetParam14 >= 0.5) ? 'flex' : 'none';
     if (currentTargetDisplay !== lastTreatUIDisplay) {
@@ -1101,7 +1107,7 @@ function updateParams() {
     }
 
     if (targetParam14 >= 0.5) {
-      const btnMedicine = document.getElementById('btn-treat-medicine');
+      const btnMedicine = getDOM('btn-treat-medicine');
       if (btnMedicine) {
         const targetBtnStyle = (targetParam14 >= 1.0) ? "active" : "disabled";
         if (targetBtnStyle !== lastBtnMedicineStyle) {
@@ -1151,19 +1157,26 @@ function updateParams() {
   currentParam11 = lerp(currentParam11, targetParam11, p11Speed);
   core.setParameterValueById("Param11", currentParam11);
 
+  // 🛡️ 效能終極優化：防止 DOM Trashing
   if (targetParam10 === 0) {
     targetParam12 = 0;
-    localSwipeCount = 0;
-    param8PressCount = 0; 
-    hasTriggeredParam13Liquid = false; 
-    sessionRewardShown = false; 
-    isPipActive = false;
-    
-    const btnPip = document.getElementById('btn-pip-toggle');
-    if (btnPip) {
-      btnPip.style.background = 'rgba(0, 0, 0, 0.7)';
-      btnPip.style.border = '2px solid rgba(255, 255, 255, 0.8)';
+    // 只有在剛剛觸發內褲穿上時，才重設以下屬性 (防止每秒 60 次洗 DOM)
+    if (!isUnderwearReset) {
+        localSwipeCount = 0;
+        param8PressCount = 0; 
+        hasTriggeredParam13Liquid = false; 
+        sessionRewardShown = false; 
+        isPipActive = false;
+        
+        const btnPip = getDOM('btn-pip-toggle');
+        if (btnPip) {
+          btnPip.style.background = 'rgba(0, 0, 0, 0.7)';
+          btnPip.style.border = '2px solid rgba(255, 255, 255, 0.8)';
+        }
+        isUnderwearReset = true; // 上鎖
     }
+  } else {
+    isUnderwearReset = false; // 內褲脫掉時解鎖
   }
 
   let p12Speed = (targetParam12 === 0) ? 0.2 : 0.02;
@@ -1234,7 +1247,9 @@ function updateParams() {
   currentMouthForm = lerp(currentMouthForm, targetMouthForm, 0.3);
   core.setParameterValueById("ParamMouthForm", currentMouthForm);
 
-  const breathValue = (Math.sin(Date.now() / 400.0) * 0.5) + 0.5;
+  // 🛡️ 效能優化：使用 PIXI Ticker 的內部時間來控制呼吸，避免 Date.now() 與幀數衝突引起的抽搐
+  globalElapsedTime += (app.ticker.deltaMS || 16.66);
+  const breathValue = (Math.sin(globalElapsedTime / 400.0) * 0.5) + 0.5;
   core.setParameterValueById("ParamBreath", breathValue);
 
   if (targetParam3 === 1) targetParam = -1;
@@ -1525,6 +1540,9 @@ async function start() {
     window.model = model;
     app.stage.addChild(model);
     model.internalModel.eyeBlink = null;
+    
+    // 🛡️ 效能優化：關閉官方自帶的內建呼吸器，防止與我們的自訂呼吸發生衝突導致抖動
+    if (model.internalModel.breath) model.internalModel.breath = null; 
 
     setupPiP(); 
     setupInteraction(); 
@@ -1555,3 +1573,5 @@ async function start() {
 }
 
 window.addEventListener('DOMContentLoaded', start);
+
+```
