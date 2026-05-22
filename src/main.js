@@ -392,7 +392,7 @@ function createTreatmentUI() {
       spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "⚠️ 必須先按下「掰開」才能擦藥！", "#ffcc00", 1800, "24px");
       return;
     }
-    targetParam14 = 0;              
+    targetParam14 = 0;             
     swipeCounterForSwelling = 0;    
     spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "擦藥治療成功，私處恢復原狀 ✨", "#a1c4fd", 2000, "26px");
   });
@@ -732,7 +732,7 @@ function createZoomButtons() {
     window.open('https://www.instagram.com/zzzzihhj/', '_blank');
   });
   btnIg.addEventListener('mouseenter', () => btnIg.style.transform = 'scale(1.1)');
-  btnIg.addEventListener('mouseleave', () => btnIg.style.transform = 'scale(1)');
+  btnIg.addEventListener('mouseleave', () => btnIg.style.transform = 'scale(1.1)');
 
   const btnPip = document.createElement('button');
   btnPip.id = 'btn-pip-toggle';
@@ -837,7 +837,7 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
     { transform: 'translate(-50%, -50%)', opacity: 0 },
     { transform: 'translate(-50%, -70%)', opacity: 1, offset: 0.1 },  
     { transform: 'translate(-50%, -100%)', opacity: 1, offset: 0.8 }, 
-    { transform: 'translate(-50%, -120%)', opacity: 0 }                
+    { transform: 'translate(-50%, -120%)', opacity: 0 }               
   ], { duration: duration, easing: 'ease-out', fill: 'forwards' });
 
   animation.onfinish = () => { textEl.remove(); };
@@ -1169,23 +1169,12 @@ function updateParams() {
   currentParam12 = lerp(currentParam12, targetParam12, p12Speed);
   core.setParameterValueById("Param12", currentParam12);
 
+  // 💦 漏液機制修正：徹底移除與脫內衣 (Param7) 的關聯，僅依賴刺激條件達標
   let finalParam13Target = 0;
-  if (param8PressCount >= 25) {
+  if (hasTriggeredParam13Liquid || param8PressCount >= 25) {
     finalParam13Target = 1.0;
   } else {
-    let baseMaskOpacity = 0;
-    if (currentParam7 <= 0.8) {
-      baseMaskOpacity = 0; 
-    } else if (currentParam7 >= 2.8) {
-      baseMaskOpacity = 1.0; 
-    } else if (currentParam7 >= 2.4) {
-      baseMaskOpacity = 0.8 + ((currentParam7 - 2.4) / 0.4) * 0.2;
-    } else {
-      baseMaskOpacity = 0.0 + ((currentParam7 - 0.8) / 1.6) * 0.8;
-    }
-    
-    finalParam13Target = baseMaskOpacity * (1.0 - currentParam9);
-    if (finalParam13Target > 0.95) finalParam13Target = 0.95; 
+    finalParam13Target = 0.0;
   }
 
   currentParam13 = lerp(currentParam13, finalParam13Target, 0.15);
