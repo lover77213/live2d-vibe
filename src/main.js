@@ -326,13 +326,13 @@ function createCharacterTagUI() {
     font-size: 20px; color: #ffb3c6; text-shadow: 0 0 8px rgba(255, 179, 198, 0.6);
     margin-bottom: 2px; font-weight: 900;
   `;
-  nameLayer.innerText = "精液廁所曾于容"; 
+  nameLayer.innerText = "口袋穴天使"; 
 
   const subLayer = document.createElement('div');
   subLayer.style.cssText = `
     font-size: 13px; color: #ffffff; opacity: 0.85; letter-spacing: 3px; font-weight: bold;
   `;
-  subLayer.innerText = "身材展示";
+  subLayer.innerText = "試玩版";
 
   tagDiv.appendChild(nameLayer);
   tagDiv.appendChild(subLayer);
@@ -1487,7 +1487,7 @@ function setupInteraction() {
  */
 async function start() {
   try {
-    document.title = "口袋穴天使";
+    document.title = "口袋穴天使試玩版";
 
     createLoadingUI();
     await updateLoadingText("初始化 WebGL 繪圖引擎...");
