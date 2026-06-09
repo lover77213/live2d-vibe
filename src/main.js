@@ -30,7 +30,7 @@ let targetParam5 = -1, currentParam5 = -1;
 let targetParam3 = -1, currentParam3 = -1;    
 let targetParam = -1, currentParam = -1;      
 let targetParam6 = 0, currentParam6 = 0;      
-let currentParam8 = 0;             
+let currentParam8 = 0;              
 let blinkTarget = 1, blinkCurrent = 1;        
 
 // 💖 表情連動與大振幅隨機眼神狀態 
@@ -392,7 +392,7 @@ function createTreatmentUI() {
       spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "⚠️ 必須先按下「掰開」才能擦藥！", "#ffcc00", 1800, "24px");
       return;
     }
-    targetParam14 = 0;             
+    targetParam14 = 0;               
     swipeCounterForSwelling = 0;    
     spawnFloatingText(window.innerWidth / 2, window.innerHeight * 0.4, "擦藥治療成功，私處恢復原狀 ✨", "#a1c4fd", 2000, "26px");
   });
@@ -630,6 +630,7 @@ function resize() {
     model.y = window.innerHeight / 2;
 
     const btnIg = getDOM('btn-ig-link');
+    const btnPatreon = getDOM('btn-patreon-link'); // 新增 Patreon 按鈕的 RWD 設定
     const btnPip = getDOM('btn-pip-toggle');
     const btn18 = getDOM('btn-reward-gallery');
     const btnBio = getDOM('btn-bio-text'); 
@@ -644,6 +645,7 @@ function resize() {
       const btn18FontSize = isMobile ? '35px' : '24px';
       
       if (btnIg) { btnIg.style.width = btnSize; btnIg.style.height = btnSize; btnIg.style.fontSize = btn18FontSize; }
+      if (btnPatreon) { btnPatreon.style.width = btnSize; btnPatreon.style.height = btnSize; btnPatreon.style.fontSize = btn18FontSize; }
       if (btnPip) { btnPip.style.width = btnSize; btnPip.style.height = btnSize; btnPip.style.fontSize = btn18FontSize; }
       if (btn18) { btn18.style.width = btnSize; btn18.style.height = btnSize; btn18.style.fontSize = btn18FontSize; }
       if (btnBio) { btnBio.style.width = btnSize; btnBio.style.height = btnSize; btnBio.style.fontSize = btn18FontSize; }
@@ -717,6 +719,23 @@ function createZoomButtons() {
   });
   btnBio.addEventListener('mouseenter', () => btnBio.style.transform = 'scale(1.1)');
   btnBio.addEventListener('mouseleave', () => btnBio.style.transform = 'scale(1)');
+
+  // 新增 Patreon 按鈕
+  const btnPatreon = document.createElement('button');
+  btnPatreon.id = 'btn-patreon-link';
+  btnPatreon.innerText = 'PT';
+  btnPatreon.style.cssText = btnStyle;
+  btnPatreon.style.background = 'linear-gradient(135deg, #FF424D, #ff6b74)';
+  btnPatreon.style.color = '#ffffff';
+  btnPatreon.style.border = '2px solid #ffffff';
+  
+  btnPatreon.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
+  btnPatreon.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    window.open('https://www.patreon.com/c/XingNuGame', '_blank');
+  });
+  btnPatreon.addEventListener('mouseenter', () => btnPatreon.style.transform = 'scale(1.1)');
+  btnPatreon.addEventListener('mouseleave', () => btnPatreon.style.transform = 'scale(1)');
 
   const btnIg = document.createElement('button');
   btnIg.id = 'btn-ig-link';
@@ -799,6 +818,7 @@ function createZoomButtons() {
 
   container.appendChild(btn18); 
   container.appendChild(btnBio); 
+  container.appendChild(btnPatreon); // 放置在 IG 的上方 
   container.appendChild(btnIg);  
   container.appendChild(btnPip); 
   container.appendChild(btnX2);
@@ -837,7 +857,7 @@ function spawnFloatingText(x, y, text = "嗯...❤️", color = "#ffb3c6", durat
     { transform: 'translate(-50%, -50%)', opacity: 0 },
     { transform: 'translate(-50%, -70%)', opacity: 1, offset: 0.1 },  
     { transform: 'translate(-50%, -100%)', opacity: 1, offset: 0.8 }, 
-    { transform: 'translate(-50%, -120%)', opacity: 0 }               
+    { transform: 'translate(-50%, -120%)', opacity: 0 }                
   ], { duration: duration, easing: 'ease-out', fill: 'forwards' });
 
   animation.onfinish = () => { textEl.remove(); };
@@ -1467,7 +1487,7 @@ function setupInteraction() {
  */
 async function start() {
   try {
-    document.title = "掰穴模擬器";
+    document.title = "口袋穴天使";
 
     createLoadingUI();
     await updateLoadingText("初始化 WebGL 繪圖引擎...");
